@@ -1,14 +1,13 @@
 import streamlit as st
 from . import tempo_atend
-from . import espera
-from . import permanencia
+from . import espera  # Add import for wait time module
 
 def mostrar_dashboard(dados, filtros):
     """Mostra o dashboard de operações e clientes"""
-    aba_tempo_atend, aba_espera, aba_permanencia = st.tabs([
+    # Create tabs in specific order
+    aba_tempo_atend, aba_espera = st.tabs([
         "Tempo de Atendimento",
-        "Tempo de Espera em Fila",
-        "Permanência"
+        "Tempo de Espera em Fila"
     ])
     
     with aba_tempo_atend:
@@ -16,6 +15,3 @@ def mostrar_dashboard(dados, filtros):
     
     with aba_espera:
         espera.mostrar_aba(dados, filtros)
-    
-    with aba_permanencia:
-        permanencia.mostrar_aba(dados, filtros)
