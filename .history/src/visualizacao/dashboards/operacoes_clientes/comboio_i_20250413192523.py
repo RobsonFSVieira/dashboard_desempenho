@@ -73,20 +73,20 @@ def criar_mapa_calor(dados, filtros, cliente=None):
             title="Hora do Dia",
             ticktext=[f"{h:02d}h" for h in range(24)],
             tickvals=list(range(24)),
-            tickangle=0,  # Horizontal alignment
+            tickangle=-45,
             gridcolor=cores_tema['grid'],
-            title_font=dict(size=16, color="#E6E6E6"),  # Increased title font size
-            tickfont=dict(size=14, color="#E6E6E6"),  # Increased tick font size
-            dtick=1  # Force display of all hours
+            title_font=dict(size=14, color="#E6E6E6"),
+            tickfont=dict(size=10, color="#E6E6E6"),  # Fonte menor
+            dtick=1  # Força exibição de todas as horas
         ),
         yaxis=dict(
             title="Data",
             gridcolor=cores_tema['grid'],
-            title_font=dict(size=16, color="#E6E6E6"),  # Increased title font size
-            tickfont=dict(size=14, color="#E6E6E6")  # Increased tick font size
+            title_font=dict(size=14, color="#E6E6E6"),
+            tickfont=dict(size=12, color="#E6E6E6")
         ),
         height=max(400, len(pivot.index) * 25),
-        margin=dict(l=50, r=50, t=50, b=80)  # Slightly reduced bottom margin
+        margin=dict(l=50, r=50, t=50, b=100)  # Aumentar margem inferior
     )
     
     return fig
