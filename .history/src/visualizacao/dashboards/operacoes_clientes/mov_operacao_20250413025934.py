@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-from visualizacao.tema import Tema
 
 def formatar_data(data):
     """Formata a data para o padrão dd/mm/aaaa"""
@@ -34,94 +33,83 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
 
 def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     """Cria gráfico comparativo entre os dois períodos"""
-    try:
-        # Merge dos dados dos dois períodos
-        df_comp = pd.merge(
-            dados_p1, 
-            dados_p2, 
-            on='operacao', 
-            suffixes=('_p1', '_p2')
-        )
-        
-        # Calcula variação percentual
-        df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) 
-                              / df_comp['quantidade_p1'] * 100)
-        
-        # Ordena por quantidade do período 2
-        df_comp = df_comp.sort_values('quantidade_p2', ascending=True)
-        
-        # Prepara legendas formatadas com datas
-        legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
-        legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
-        
-        # Obtém cores do tema atual
-        tema_atual = Tema.detectar_tema_atual()
-        cores = Tema.PALETAS[tema_atual]['categorica'][:2]
-        
-        # Cria o gráfico
-        fig = go.Figure()
-        
-        # Adiciona barras horizontais
-        fig.add_trace(
-            go.Bar(
-                name=legenda_p1,
-                y=df_comp['operacao'],
-                x=df_comp['quantidade_p1'],
-                orientation='h',
-                marker_color=cores[0]
-            )
-        )
-        
-        fig.add_trace(
-            go.Bar(
-                name=legenda_p2,
-                y=df_comp['operacao'],
-                x=df_comp['quantidade_p2'],
-                orientation='h',
-                marker_color=cores[1]
-            )
-        )
-        
-        # Atualiza o layout usando cores do tema
-        fig.update_layout(
-            title={
-                'text': 'Comparativo de Movimentação por Operação',
-                'font': {'size': 18}
-            },
-            barmode='group',
-            height=400 + (len(df_comp) * 30),
-            font={'size': 12},
-            plot_bgcolor=Tema.CORES[tema_atual]['fundo'],
-            paper_bgcolor=Tema.CORES[tema_atual]['fundo'],
-            font_color=Tema.CORES[tema_atual]['texto'],
-            showlegend=True,
-            legend={
-                'orientation': 'h',
-                'yanchor': 'bottom',
-                'y': 1.02,
-                'xanchor': 'right',
-                'x': 1
-            }
-        )
-        
-        # Atualiza os eixos
-        fig.update_xaxes(
-            title="Quantidade de Atendimentos",
-            gridcolor=Tema.CORES[tema_atual]['borda'],
-            title_font={'size': 14}
-        )
-        
-        fig.update_yaxes(
-            title="Operação",
-            gridcolor=Tema.CORES[tema_atual]['borda'],
-            title_font={'size': 14}
-        )
-        
-        return fig
+    # Merge dos dados dos dois períodos
+    df_comp = pd.merge(
+        dados_p1, 
+        dados_p2, 
+        on='operacao', 
+        suffixes=('_p1', '_p2')
+    )
     
-    except Exception as e:
-        st.error(f"Erro ao criar gráfico: {str(e)}")
-        return None
+    # Calcula variação percentual
+    df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) 
+                          / df_comp['quantidade_p1'] * 100)
+    
+    # Ordena por quantidade do período 2
+    df_comp = df_comp.sort_values('quantidade_p2', ascending=True)
+    
+    # Prepara legendas formatadas com datas
+    legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
+    legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
+    
+    # Cores para os períodos
+    cor_periodo1 = 'rgba(75, 192, 192, 0.8)'  # Azul esverdeado
+    cor_periodo2 = 'rgba(153, 102, 255, 0.8)'  # Roxo
+    
+    # Cria o gráfico
+    fig = go.Figure()
+    
+    # Adiciona barras horizontais empilhadas
+    fig.add_trace(
+        go.Bar(
+            name=legenda_p1,
+            y=df_comp['operacao'],
+            x=df_comp['quantidade_p1'],
+            orientation='h',
+            marker_color=cor_periodo1,
+        )
+    )
+    
+    fig.add_trace(
+        go.Bar(
+            name=legenda_p2,
+            y=df_comp['operacao'],
+            x=df_comp['quantidade_p2'],
+            orientation='h',
+            marker_color=cor_periodo2,
+        )
+    )
+    
+    # Adiciona anotações com a variação percentual
+    for i, row in df_comp.iterrows():
+        fig.add_annotation(
+            x=max(row['quantidade_p1'], row['quantidade_p2']) + 1,
+            y=row['operacao'],
+            text=f"{row['variacao']:+.1f}%",
+            showarrow=False,
+            font=dict(
+                color='green' if row['variacao'] >= 0 else 'red'
+            )
+        )
+    
+    # Configura o layout para barras empilhadas horizontais
+    fig.update_layout(
+        title='Comparativo de Movimentação por Operação',
+        barmode='stack',  # Empilha as barras
+        height=400 + (len(df_comp) * 20),
+        showlegend=True,
+        xaxis_title="Quantidade de Atendimentos",
+        yaxis_title="Operação",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Movimentação por Operação"""

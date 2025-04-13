@@ -108,52 +108,56 @@ def criar_filtros():
             'turno': turno,
             'meta_permanencia': meta_permanencia
         }
-        
-        # Adiciona seletor de tema como último filtro
-        adicionar_seletor_tema()
-        
-        return resultado
     
-    return None
+    # Adiciona seletor de tema discreto no final da sidebar
+    adicionar_seletor_tema_discreto()
+    
+    return resultado
 
-def adicionar_seletor_tema():
-    """Adiciona um seletor de tema discreto como último filtro na sidebar"""
-    # Cria espaço para separar dos outros filtros
-    st.sidebar.markdown("---")
+def adicionar_seletor_tema_discreto():
+    """Adiciona um seletor de tema muito discreto no final da sidebar"""
+    # Cria espaçamento para empurrar o seletor para o final
+    for _ in range(3):
+        st.sidebar.write("")
     
-    # Detecta o tema atual
-    tema_atual = Tema.detectar_tema_atual()
-    tema_index = 0 if tema_atual == 'claro' else 1
+    # Adiciona uma linha fina de separação
+    st.sidebar.markdown("<hr style='margin: 0; border-top: 1px solid rgba(150,150,150,0.2);'>", unsafe_allow_html=True)
     
-    # Título muito discreto
-    st.sidebar.markdown(
-        "<p style='font-size: 0.8rem; color: rgba(150,150,150,0.7); margin-bottom: 0;'>Tema:</p>",
-        unsafe_allow_html=True
-    )
-    
-    # Seletor de tema
-    tema_selecionado = st.sidebar.radio(
-        "Selecionar tema",
-        options=["Claro", "Escuro"],
-        index=tema_index,
-        label_visibility="collapsed",
-        horizontal=True,
-        key="tema_seletor"
-    )
-    
-    # Aplica tema se alterado
-    if (tema_selecionado == "Claro" and tema_atual == 'escuro') or \
-       (tema_selecionado == "Escuro" and tema_atual == 'claro'):
+    # Container para o seletor de tema com estilos personalizados
+    with st.sidebar.container():
+        # Detecta o tema atual
+        tema_atual = Tema.detectar_tema_atual()
+        tema_index = 0 if tema_atual == 'claro' else 1
         
-        tema_js = "dark" if tema_selecionado == "Escuro" else "light"
-        js = f"""
-        <script>
-            const theme = '{tema_js}';
-            localStorage.setItem('theme', theme);
-            setTimeout(() => window.location.reload(), 100);
-        </script>
-        """
-        st.components.v1.html(js, height=0)
-    
-    # Adiciona pequeno espaço vazio após seletor para estética
-    st.sidebar.write("")
+        # Título extremamente discreto
+        st.markdown(
+            "<p style='font-size: 0.7rem; opacity: 0.6; margin-bottom: 0; text-align: center;'>Tema</p>", 
+            unsafe_allow_html=True
+        )
+        
+        # Seletor minimalista usando colunas para centralizar
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            tema_selecionado = st.radio(
+                "Tema",
+                ["Claro", "Escuro"],
+                horizontal=True,
+                label_visibility="collapsed",
+                index=tema_index,
+                key="tema_seletor"
+            )
+        
+        # Aplica mudança de tema com JavaScript se alterado
+        if (tema_selecionado == "Claro" and tema_atual == 'escuro') or \
+           (tema_selecionado == "Escuro" and tema_atual == 'claro'):
+            
+            tema_js = "dark" if tema_selecionado == "Escuro" else "light"
+            js = f"""
+            <script>
+                const theme = '{tema_js}';
+                document.body.dataset.theme = theme;
+                localStorage.setItem('theme', theme);
+                setTimeout(() => window.location.reload(), 50);
+            </script>
+            """
+            st.components.v1.html(js, height=0)
