@@ -89,7 +89,7 @@ def criar_mapa_calor(dados, filtros, cliente=None):
         margin=dict(l=50, r=50, t=50, b=80)  # Slightly reduced bottom margin
     )
     
-    return fig, pivot
+    return fig
 
 def obter_cores_tema():
     """Retorna as cores baseadas no tema atual"""
@@ -136,10 +136,10 @@ def mostrar_aba(dados, filtros):
             )
             
             # Criar mapa de calor para o cliente selecionado
-            fig, pivot = criar_mapa_calor(dados, filtros, cliente_selecionado)
+            fig = criar_mapa_calor(dados, filtros, cliente_selecionado)
         else:
             # Criar mapa de calor geral
-            fig, pivot = criar_mapa_calor(dados, filtros)
+            fig = criar_mapa_calor(dados, filtros)
         
         # Exibir gráfico
         st.plotly_chart(fig, use_container_width=True)
@@ -152,15 +152,15 @@ def mostrar_aba(dados, filtros):
             # Preparação dos dados
             df['hora'] = df['retirada'].dt.hour
             df['data'] = df['retirada'].dt.date
-            # Configurar dias da semana em português (ordem brasileira)
+            # Configurar dias da semana em português
             dias_semana = {
-                'Sunday': 'Domingo',
                 'Monday': 'Segunda-feira',
                 'Tuesday': 'Terça-feira',
                 'Wednesday': 'Quarta-feira',
                 'Thursday': 'Quinta-feira',
                 'Friday': 'Sexta-feira',
-                'Saturday': 'Sábado'
+                'Saturday': 'Sábado',
+                'Sunday': 'Domingo'
             }
             df['dia_semana'] = df['retirada'].dt.day_name().map(dias_semana)
             df['periodo_15min'] = df['retirada'].dt.floor('15T')
@@ -170,7 +170,6 @@ def mostrar_aba(dados, filtros):
             hora_pico = picos.idxmax()
             dias_mov = df.groupby(['dia_semana', 'data'])['id'].count().groupby('dia_semana').mean()
             dia_mais_mov = dias_mov.idxmax()
-            horarios_criticos = picos[picos > picos.mean() + picos.std()]  # Movido para cima
             
             # Análise de comboios
             def identificar_comboios(grupo):
@@ -185,48 +184,23 @@ def mostrar_aba(dados, filtros):
             
             with col1:
                 st.write("### 📈 Métricas Principais")
-                # Média diária baseada nas linhas do mapa de calor
-                media_diaria = int(pivot.mean(axis=1).mean())  # Média das somas diárias
-                total_dias = len(pivot.index)
                 st.metric(
-                    "Média diária de senhas",
-                    f"{media_diaria}",
-                    f"Total de {total_dias} dias analisados"
+                    "Média diária de retiradas",
+                    f"{int(df.groupby('data')['id'].count().mean())}"
                 )
-                
-                # Encontrar os 3 maiores picos da tabela
-                valores_flat = pivot.values.flatten()  # Transformar matriz em array
-                top_3_indices = np.argsort(valores_flat)[-3:][::-1]  # Índices dos 3 maiores valores
-                
-                # Encontrar datas e horas correspondentes aos picos
-                picos_info = []
-                for idx in top_3_indices:
-                    linha = idx // pivot.shape[1]  # Índice da linha (data)
-                    coluna = idx % pivot.shape[1]  # Índice da coluna (hora)
-                    data = pivot.index[linha]
-                    valor = int(valores_flat[idx])
-                    picos_info.append(f"{data} {coluna:02d}h: {valor}")
-                
-                # Exibir o maior pico e seus detalhes
                 st.metric(
-                    "Maiores picos registrados",
-                    f"{int(valores_flat[top_3_indices[0]])} senhas",
-                    f"Top 3 momentos críticos"
+                    "Pico de retiradas (15min)",
+                    f"{int(comboios_por_data.max())}"
                 )
-                for pico in picos_info:
-                    st.write(f"- **{pico}** senhas")
                 
                 st.write("### ⏰ Horários Críticos")
-                for hora, qtd in horarios_criticos.items():  # Agora usa a variável definida acima
+                horarios_criticos = picos[picos > picos.mean() + picos.std()]
+                for hora, qtd in horarios_criticos.items():
                     st.write(f"- **{hora:02d}h**: {int(qtd)} retiradas/dia")
             
             with col2:
                 st.write("### 📅 Padrão Semanal")
-                # Ordenar dias da semana começando pelo domingo
-                ordem_dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
-                            'Quinta-feira', 'Sexta-feira', 'Sábado']
-                dias_mov_ordenado = dias_mov.reindex(ordem_dias).dropna()
-                for dia, media in dias_mov_ordenado.items():
+                for dia, media in dias_mov.sort_values(ascending=False).items():
                     st.write(f"- **{dia}**: {int(media)} retiradas")
                 
                 st.write("### 🚦 Picos de Comboio")
@@ -256,6 +230,22 @@ def mostrar_aba(dados, filtros):
                 - Comunicar horários alternativos
                 """)
             
+            # Indicadores de Performance
+            st.write("### 📊 Indicadores de Performance")
+            kpi_cols = st.columns(3)
+            
+            with kpi_cols[0]:
+                taxa_ocupacao = (len(horarios_criticos) / 24) * 100
+                st.metric("Taxa de Ocupação Crítica", f"{taxa_ocupacao:.1f}%")
+            
+            with kpi_cols[1]:
+                media_diaria = df.groupby('data')['id'].count().mean()
+                st.metric("Média Diária", f"{int(media_diaria)}")
+            
+            with kpi_cols[2]:
+                total_comboios = len(comboios.groupby(['data', 'periodo_15min']))
+                st.metric("Ocorrências de Comboio", f"{total_comboios}")
+    
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise de Chegada em Comboio")
         st.exception(e)

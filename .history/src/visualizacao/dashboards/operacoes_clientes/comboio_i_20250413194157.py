@@ -256,6 +256,22 @@ def mostrar_aba(dados, filtros):
                 - Comunicar horários alternativos
                 """)
             
+            # Indicadores de Performance
+            st.write("### 📊 Indicadores de Performance")
+            kpi_cols = st.columns(3)
+            
+            with kpi_cols[0]:
+                taxa_ocupacao = (len(horarios_criticos) / 24) * 100
+                st.metric("Taxa de Ocupação Crítica", f"{taxa_ocupacao:.1f}%")
+            
+            with kpi_cols[1]:
+                media_diaria = df.groupby('data')['id'].count().mean()
+                st.metric("Média Diária", f"{int(media_diaria)}")
+            
+            with kpi_cols[2]:
+                total_comboios = len(comboios.groupby(['data', 'periodo_15min']))
+                st.metric("Ocorrências de Comboio", f"{total_comboios}")
+    
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise de Chegada em Comboio")
         st.exception(e)
