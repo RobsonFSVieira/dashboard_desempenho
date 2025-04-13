@@ -19,14 +19,11 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
     df_filtrado = df[mask]
+    
+    # Aplicar filtros adicionais se especificados
+    if filtros['cliente'] != ['Todos']:
+        df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
     
     # Agrupar por operação
     movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()
@@ -36,23 +33,27 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
 
 def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     try:
-        # Prepara dados
-        df_comp = pd.merge(dados_p1, dados_p2, on='operacao', suffixes=('_p1', '_p2'))
+        # Merge e prepara dados
+        df_comp = pd.merge(
+            dados_p1, 
+            dados_p2, 
+            on='operacao', 
+            suffixes=('_p1', '_p2')
+        )
+        
+        # Calcula total e variação percentual
         df_comp['total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / 
                               df_comp['quantidade_p1'] * 100)
         
-        # Ordena por total decrescente (maiores no topo)
+        # Ordena por total decrescente
         df_comp = df_comp.sort_values('total', ascending=True)
         
-        # Prepara legendas
+        # Prepara legendas com data formatada
         legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
         legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
         
-        # Cores para os períodos
-        cores = ['#0068c9', '#83c9ff']  # Azul escuro e azul claro
-        
-        # Cria o gráfico
+        # Cria figura base
         fig = go.Figure()
         
         # Adiciona barras para período 1
@@ -63,8 +64,6 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             orientation='h',
             text=df_comp['quantidade_p1'],
             textposition='auto',
-            marker_color=cores[0],
-            textfont={'size': 12}
         ))
         
         # Adiciona barras para período 2
@@ -75,65 +74,42 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             orientation='h',
             text=df_comp['quantidade_p2'],
             textposition='auto',
-            marker_color=cores[1],
-            textfont={'size': 12}
         ))
         
         # Adiciona anotações de variação percentual
         for i, row in df_comp.iterrows():
-            cor = '#29b09d' if row['variacao'] >= 0 else '#ff5757'  # Verde para positivo, vermelho para negativo
-            x_pos = row['quantidade_p2']
+            cor = 'green' if row['variacao'] >= 0 else 'red'
+            # Calcula a posição exata após a maior barra
+            x_pos = max(row['quantidade_p1'], row['quantidade_p2']) + (max(row['quantidade_p1'], row['quantidade_p2']) * 0.02)
             
             fig.add_annotation(
                 y=row['operacao'],
                 x=x_pos,
                 text=f"{row['variacao']:+.1f}%",
                 showarrow=False,
-                font=dict(color=cor, size=12),
+                font=dict(color=cor, size=11),
                 xanchor='left',
-                yanchor='middle',
-                xshift=5
+                yanchor='middle'
             )
         
-        # Atualiza layout
+        # Atualiza layout com margem direita baseada no maior valor + espaço para rótulos
+        max_value = df_comp[['quantidade_p1', 'quantidade_p2']].max().max()
+        right_margin = int(max_value * 0.25)  # 25% do maior valor para a margem direita
+        
         fig.update_layout(
-            title={
-                'text': 'Comparativo de Movimentação por Operação',
-                'font': {'size': 16}
-            },
-            barmode='group',
-            bargap=0.15,
-            bargroupgap=0.1,
-            height=max(400, len(df_comp) * 35),
-            font={'size': 12},
+            title='Comparativo de Movimentação por Operação',
+            barmode='relative',
+            height=400 + (len(df_comp) * 30),
+            font_size=12,
             showlegend=True,
-            legend={
-                'orientation': 'h',
-                'yanchor': 'bottom',
-                'y': 1.02,
-                'xanchor': 'right',
-                'x': 1
-            },
-            margin=dict(l=20, r=150, t=60, b=20),
-            plot_bgcolor='white',
-            paper_bgcolor='white'
-        )
-        
-        # Atualiza eixos
-        fig.update_xaxes(
-            title='Quantidade de Atendimentos',
-            gridcolor='#e9ecef',
-            showline=True,
-            linewidth=1,
-            linecolor='#e9ecef'
-        )
-        
-        fig.update_yaxes(
-            title='Operação',
-            gridcolor='#e9ecef',
-            showline=True,
-            linewidth=1,
-            linecolor='#e9ecef'
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1
+            ),
+            margin=dict(l=20, r=right_margin, t=60, b=20)
         )
         
         return fig

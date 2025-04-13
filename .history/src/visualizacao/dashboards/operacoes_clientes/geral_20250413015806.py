@@ -8,20 +8,11 @@ def calcular_metricas_gerais(dados, filtros):
     """Calcula métricas gerais para o período selecionado"""
     df = dados['base']
     
-    # Aplicar filtros de data
+    # Aplicar filtros de data para período 2 (mais recente)
     mask = (
         (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
         (df['retirada'].dt.date <= filtros['periodo2']['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
     df_filtrado = df[mask]
     
     # Cálculo das métricas

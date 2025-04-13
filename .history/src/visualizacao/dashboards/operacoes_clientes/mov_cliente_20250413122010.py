@@ -94,18 +94,13 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         
         # Calcula o tamanho do texto baseado na largura das barras
         max_valor = max(df_comp['quantidade_p1'].max(), df_comp['quantidade_p2'].max())
+        base_font_size = 16  # tamanho base da fonte
         
-        def calcular_tamanho_fonte(valor, tipo='barra'):
-            # Define ranges diferentes para cada tipo de rótulo
-            if tipo == 'barra':
-                min_size, max_size = 12, 20  # Aumentou range para barras
-            else:  # tipo == 'porcentagem'
-                min_size, max_size = 8, 14   # Range menor para porcentagens
-            
-            # Calcula o tamanho proporcional ao valor
-            tamanho = max_size * (valor / max_valor)
-            return max(min_size, min(max_size, tamanho))
-
+        def calcular_tamanho_fonte(valor):
+            # Calcula o tamanho da fonte proporcionalmente ao valor
+            # Limita entre 10 e 16 pontos
+            return max(10, min(16, base_font_size * (valor / max_valor)))
+        
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
             name=legenda_p1,
@@ -116,7 +111,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             textposition='inside',
             marker_color=cores_tema['primaria'],
             textfont={
-                'size': df_comp['quantidade_p1'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
+                'size': df_comp['quantidade_p1'].apply(calcular_tamanho_fonte),
                 'color': '#ffffff'
             },
             opacity=0.85
@@ -132,19 +127,19 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             textposition='inside',
             marker_color=cores_tema['secundaria'],
             textfont={
-                'size': df_comp['quantidade_p2'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
+                'size': df_comp['quantidade_p2'].apply(calcular_tamanho_fonte),
                 'color': '#000000'
             },
             opacity=0.85
         ))
-
+        
         # Calcula a posição total para as anotações de variação
         df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         
-        # Adiciona anotações de variação percentual
+        # Adiciona anotações de variação percentual com tamanho proporcional
         for i, row in df_comp.iterrows():
             cor = cores_tema['sucesso'] if row['variacao'] >= 0 else cores_tema['erro']
-            fonte_size = calcular_tamanho_fonte(row['posicao_total'], 'porcentagem')
+            fonte_size = calcular_tamanho_fonte(row['posicao_total'])
             
             fig.add_annotation(
                 y=row['cliente'],
@@ -163,10 +158,10 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'text': 'Comparativo de Movimentação por Cliente',
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
-            barmode='stack',
+            barmode='stack',  # Muda para barras empilhadas
             bargap=0.15,
             bargroupgap=0.1,
-            height=max(600, len(df_comp) * 45),  # Aumentado altura base e multiplicador
+            height=max(400, len(df_comp) * 35),
             font={'size': 12, 'color': cores_tema['texto']},
             showlegend=True,
             legend={
@@ -176,11 +171,11 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'xanchor': 'right',
                 'x': 1,
                 'font': {'color': cores_tema['texto']},
-                'traceorder': 'normal',
-                'itemsizing': 'constant'
+                'traceorder': 'normal',     # Garante ordem normal das traces
+                'itemsizing': 'constant'    # Mantém tamanhos constantes
             },
-            margin=dict(l=20, r=160, t=80, b=40),  # Aumentado margens right, top e bottom
-            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=150, t=60, b=20),
+            plot_bgcolor='rgba(0,0,0,0)',  # Fundo transparente
             paper_bgcolor=cores_tema['fundo']
         )
         

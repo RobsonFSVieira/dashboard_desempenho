@@ -17,18 +17,11 @@ def calcular_metricas_turno(dados, filtros):
     """Calcula métricas por turno"""
     df = dados['base']
     
-    # Aplicar filtros de data
+    # Aplicar filtros de data para período 2
     mask = (
         (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
         (df['retirada'].dt.date <= filtros['periodo2']['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    
     df_filtrado = df[mask]
     
     # Identificar turno

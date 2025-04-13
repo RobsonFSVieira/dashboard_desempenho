@@ -19,14 +19,11 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
     df_filtrado = df[mask]
+    
+    # Aplicar filtros adicionais se especificados
+    if filtros['cliente'] != ['Todos']:
+        df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
     
     # Agrupar por operação
     movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()

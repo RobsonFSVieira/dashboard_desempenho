@@ -11,7 +11,7 @@ def formatar_data(data):
     return data
 
 def calcular_movimentacao_por_periodo(dados, filtros, periodo):
-    """Calcula a movimentação de cada operação no período especificado"""
+    """Calcula a movimentação de cada cliente no período especificado"""
     df = dados['base']
     
     # Aplicar filtros de data
@@ -19,31 +19,31 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
     df_filtrado = df[mask]
     
-    # Agrupar por operação
-    movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()
-    movimentacao.columns = ['operacao', 'quantidade']
+    # Agrupar por cliente
+    movimentacao = df_filtrado.groupby('CLIENTE')['id'].count().reset_index()
+    movimentacao.columns = ['cliente', 'quantidade']
     
     return movimentacao
 
 def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     try:
-        # Prepara dados
-        df_comp = pd.merge(dados_p1, dados_p2, on='operacao', suffixes=('_p1', '_p2'))
+        # Merge e prepara dados
+        df_comp = pd.merge(
+            dados_p1, 
+            dados_p2, 
+            on='cliente', 
+            suffixes=('_p1', '_p2')
+        )
+        
+        # Calcula total e variação percentual
         df_comp['total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / 
                               df_comp['quantidade_p1'] * 100)
         
-        # Ordena por total decrescente (maiores no topo)
-        df_comp = df_comp.sort_values('total', ascending=True)
+        # Ordena por total decrescente (maiores volumes no topo)
+        df_comp = df_comp.sort_values('total', ascending=True)  # ascending=True pois o eixo y é invertido
         
         # Prepara legendas
         legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
@@ -58,7 +58,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
             name=legenda_p1,
-            y=df_comp['operacao'],
+            y=df_comp['cliente'],
             x=df_comp['quantidade_p1'],
             orientation='h',
             text=df_comp['quantidade_p1'],
@@ -70,7 +70,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Adiciona barras para período 2
         fig.add_trace(go.Bar(
             name=legenda_p2,
-            y=df_comp['operacao'],
+            y=df_comp['cliente'],
             x=df_comp['quantidade_p2'],
             orientation='h',
             text=df_comp['quantidade_p2'],
@@ -85,7 +85,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             x_pos = row['quantidade_p2']
             
             fig.add_annotation(
-                y=row['operacao'],
+                y=row['cliente'],
                 x=x_pos,
                 text=f"{row['variacao']:+.1f}%",
                 showarrow=False,
@@ -98,7 +98,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Atualiza layout
         fig.update_layout(
             title={
-                'text': 'Comparativo de Movimentação por Operação',
+                'text': 'Comparativo de Movimentação por Cliente',
                 'font': {'size': 16}
             },
             barmode='group',
@@ -129,7 +129,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         )
         
         fig.update_yaxes(
-            title='Operação',
+            title='Cliente',
             gridcolor='#e9ecef',
             showline=True,
             linewidth=1,
@@ -142,53 +142,23 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         return None
 
 def mostrar_aba(dados, filtros):
-    """Mostra a aba de Movimentação por Operação"""
-    st.header("Movimentação por Operação")
+    """Mostra a aba de Movimentação por Cliente"""
+    st.header("Movimentação por Cliente")
     
     try:
         # Calcula movimentação para os dois períodos
         mov_p1 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo1')
         mov_p2 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo2')
         
+        if mov_p1.empty or mov_p2.empty:
+            st.warning("Não há dados para exibir no período selecionado.")
+            return
+        
         # Cria e exibe o gráfico comparativo
         fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Insights
-        st.subheader("📊 Insights")
-        with st.expander("Ver insights"):
-            # Calcula variações significativas
-            df_comp = pd.merge(
-                mov_p1, 
-                mov_p2, 
-                on='operacao', 
-                suffixes=('_p1', '_p2')
-            )
-            df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) 
-                                 / df_comp['quantidade_p1'] * 100)
-            
-            # Maiores aumentos e reduções
-            aumentos = df_comp[df_comp['variacao'] > 0].sort_values('variacao', ascending=False)
-            reducoes = df_comp[df_comp['variacao'] < 0].sort_values('variacao')
-            
-            # Total de atendimentos
-            total_p1 = mov_p1['quantidade'].sum()
-            total_p2 = mov_p2['quantidade'].sum()
-            var_total = ((total_p2 - total_p1) / total_p1 * 100)
-            
-            st.write("#### Principais Observações:")
-            st.write(f"**Variação Total**: {var_total:+.1f}%")
-            
-            if not aumentos.empty:
-                st.write("**Operações com Maior Crescimento:**")
-                for _, row in aumentos.head(3).iterrows():
-                    st.write(f"- {row['operacao']}: +{row['variacao']:.1f}%")
-            
-            if not reducoes.empty:
-                st.write("**Operações com Maior Redução:**")
-                for _, row in reducoes.head(3).iterrows():
-                    st.write(f"- {row['operacao']}: {row['variacao']:.1f}%")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     
     except Exception as e:
-        st.error("Erro ao gerar a aba de Movimentação por Operação")
+        st.error(f"Erro ao mostrar aba: {str(e)}")
         st.exception(e)

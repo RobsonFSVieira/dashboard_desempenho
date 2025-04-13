@@ -20,15 +20,6 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    
-    # Aplicar filtros adicionais
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    
     df_filtrado = df[mask]
     
     # Agrupar por cliente
@@ -92,20 +83,6 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Cria o gráfico
         fig = go.Figure()
         
-        # Calcula o tamanho do texto baseado na largura das barras
-        max_valor = max(df_comp['quantidade_p1'].max(), df_comp['quantidade_p2'].max())
-        
-        def calcular_tamanho_fonte(valor, tipo='barra'):
-            # Define ranges diferentes para cada tipo de rótulo
-            if tipo == 'barra':
-                min_size, max_size = 12, 20  # Aumentou range para barras
-            else:  # tipo == 'porcentagem'
-                min_size, max_size = 8, 14   # Range menor para porcentagens
-            
-            # Calcula o tamanho proporcional ao valor
-            tamanho = max_size * (valor / max_valor)
-            return max(min_size, min(max_size, tamanho))
-
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
             name=legenda_p1,
@@ -115,11 +92,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             text=df_comp['quantidade_p1'],
             textposition='inside',
             marker_color=cores_tema['primaria'],
-            textfont={
-                'size': df_comp['quantidade_p1'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
-                'color': '#ffffff'
-            },
-            opacity=0.85
+            textfont={'size': 14, 'color': '#ffffff'}  # Aumentado tamanho e fixado cor branca
         ))
         
         # Adiciona barras para período 2
@@ -131,30 +104,25 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             text=df_comp['quantidade_p2'],
             textposition='inside',
             marker_color=cores_tema['secundaria'],
-            textfont={
-                'size': df_comp['quantidade_p2'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
-                'color': '#000000'
-            },
-            opacity=0.85
+            textfont={'size': 14, 'color': '#000000'}  # Aumentado tamanho e fixado cor preta
         ))
-
+        
         # Calcula a posição total para as anotações de variação
         df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         
         # Adiciona anotações de variação percentual
         for i, row in df_comp.iterrows():
             cor = cores_tema['sucesso'] if row['variacao'] >= 0 else cores_tema['erro']
-            fonte_size = calcular_tamanho_fonte(row['posicao_total'], 'porcentagem')
             
             fig.add_annotation(
                 y=row['cliente'],
-                x=row['posicao_total'],
+                x=row['posicao_total'],  # Posiciona após o total das barras
                 text=f"{row['variacao']:+.1f}%",
                 showarrow=False,
-                font=dict(color=cor, size=fonte_size),
+                font=dict(color=cor, size=14),  # Aumentado tamanho
                 xanchor='left',
                 yanchor='middle',
-                xshift=10
+                xshift=10  # Aumentado o deslocamento
             )
         
         # Atualiza layout
@@ -163,10 +131,10 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'text': 'Comparativo de Movimentação por Cliente',
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
-            barmode='stack',
+            barmode='stack',  # Muda para barras empilhadas
             bargap=0.15,
             bargroupgap=0.1,
-            height=max(600, len(df_comp) * 45),  # Aumentado altura base e multiplicador
+            height=max(400, len(df_comp) * 35),
             font={'size': 12, 'color': cores_tema['texto']},
             showlegend=True,
             legend={
@@ -175,12 +143,10 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'y': 1.02,
                 'xanchor': 'right',
                 'x': 1,
-                'font': {'color': cores_tema['texto']},
-                'traceorder': 'normal',
-                'itemsizing': 'constant'
+                'font': {'color': cores_tema['texto']}
             },
-            margin=dict(l=20, r=160, t=80, b=40),  # Aumentado margens right, top e bottom
-            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=150, t=60, b=20),
+            plot_bgcolor='rgba(0,0,0,0)',  # Fundo transparente
             paper_bgcolor=cores_tema['fundo']
         )
         

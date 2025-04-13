@@ -12,18 +12,19 @@ def main():
         layout="wide"
     )
     
-    # Remover espaços extras mantendo título visível
+    # Remover todos os espaços extras
     st.write(
         """
         <style>
             div[data-testid="stTitle"] {
-                padding: 1rem 0 !important;
+                padding: 0 !important;
                 margin: 0 !important;
             }
             
             .block-container {
-                padding-top: 2rem !important;
+                padding-top: 1rem !important;
                 padding-bottom: 0rem !important;
+                margin-top: -4rem !important;
             }
 
             section[data-testid="stSidebar"] > div {

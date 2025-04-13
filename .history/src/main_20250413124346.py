@@ -12,38 +12,39 @@ def main():
         layout="wide"
     )
     
-    # Remover espaços extras mantendo título visível
+    # Remover espaços extras e ajustar margens
     st.write(
         """
         <style>
+            /* Remove todos os espaços do título */
             div[data-testid="stTitle"] {
-                padding: 1rem 0 !important;
+                padding: 0 !important;
                 margin: 0 !important;
             }
             
+            /* Ajusta container principal */
             .block-container {
-                padding-top: 2rem !important;
+                padding-top: 1rem !important;
                 padding-bottom: 0rem !important;
             }
-
-            section[data-testid="stSidebar"] > div {
-                padding-top: 1rem !important;
+            
+            /* Remove espaços das tabs */
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 2px !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+                margin-top: -1rem !important;
             }
-
-            .element-container {
-                margin: 0 !important;
+            
+            /* Ajusta containers de elementos */
+            div[data-testid="stVerticalBlock"] {
+                gap: 0rem !important;
                 padding: 0 !important;
             }
-
-            div.stTabs > div > div > div > div.stMarkdown {
-                margin-top: 0 !important;
-                padding-top: 0 !important;
-            }
-
-            div[data-testid="stElementContainer"] iframe {
-                height: 0 !important;
-                min-height: 0 !important;
-                display: none !important;
+            
+            div[data-testid="element-container"] {
+                margin: 0 !important;
+                padding: 0 !important;
             }
         </style>
         """,

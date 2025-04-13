@@ -67,21 +67,24 @@ class Tema:
     @classmethod
     def detectar_tema_atual(cls):
         """Detecta se o tema atual é claro ou escuro"""
-        # Verifica o tema através do query params do Streamlit
-        try:
-            # Primeiro tenta obter do session_state
-            if 'tema_atual' in st.session_state:
-                return st.session_state['tema_atual']
-            
-            # Se não existir, tenta obter das configurações do Streamlit
-            config_theme = st.get_option('theme.base')
-            tema = 'escuro' if config_theme == 'dark' else 'claro'
-            st.session_state['tema_atual'] = tema
-            return tema
-            
-        except Exception:
-            # Por padrão, retorna tema claro
-            return 'claro'
+        # Utilizando o localStorage para detectar o tema atual do Streamlit
+        script = """
+        <script>
+        const theme = window.localStorage.getItem('theme') || 'light';
+        if (theme === 'dark') {
+            document.getElementById('tema-atual').innerHTML = 'escuro';
+        } else {
+            document.getElementById('tema-atual').innerHTML = 'claro';
+        }
+        </script>
+        <div id="tema-atual" style="display: none;">claro</div>
+        """
+        
+        html(script)
+        
+        # Por padrão, assumir tema claro
+        # (O mecanismo acima funcionará apenas após a primeira renderização)
+        return 'claro'
     
     @classmethod
     def configurar_tema_plotly(cls, tema):

@@ -163,10 +163,10 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'text': 'Comparativo de Movimentação por Cliente',
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
-            barmode='stack',
+            barmode='stack',  # Muda para barras empilhadas
             bargap=0.15,
             bargroupgap=0.1,
-            height=max(600, len(df_comp) * 45),  # Aumentado altura base e multiplicador
+            height=max(400, len(df_comp) * 35),
             font={'size': 12, 'color': cores_tema['texto']},
             showlegend=True,
             legend={
@@ -176,11 +176,11 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'xanchor': 'right',
                 'x': 1,
                 'font': {'color': cores_tema['texto']},
-                'traceorder': 'normal',
-                'itemsizing': 'constant'
+                'traceorder': 'normal',     # Garante ordem normal das traces
+                'itemsizing': 'constant'    # Mantém tamanhos constantes
             },
-            margin=dict(l=20, r=160, t=80, b=40),  # Aumentado margens right, top e bottom
-            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=150, t=60, b=20),
+            plot_bgcolor='rgba(0,0,0,0)',  # Fundo transparente
             paper_bgcolor=cores_tema['fundo']
         )
         
