@@ -15,39 +15,34 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     """Calcula a movimentação de cada cliente no período especificado"""
     df = dados['base']
     
+    # Log inicial
+    st.write(f"Registros totais antes dos filtros: {len(df)}")
+    
     # Aplicar filtros de data
     mask = (
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
     df_data = df[mask]
+    st.write(f"Registros após filtro de data: {len(df_data)}")
     
     # Aplicar filtros adicionais
     if filtros['operacao'] != ['Todas']:
         mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-        
     if filtros['turno'] != ['Todos']:
-        def get_turno(hour):
-            if 7 <= hour < 15:
-                return 'TURNO A'
-            elif 15 <= hour < 23:
-                return 'TURNO B'
-            else:
-                return 'TURNO C'
-        mask &= df['retirada'].dt.hour.apply(get_turno).isin(filtros['turno'])
-        
+        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
     if filtros['cliente'] != ['Todos']:
         mask &= df['CLIENTE'].isin(filtros['cliente'])
     
     df_filtrado = df[mask]
-    
-    # Debug apenas se não houver dados
-    if len(df_filtrado) == 0:
-        st.error("Nenhum registro encontrado com os filtros selecionados")
+    st.write(f"Registros após todos os filtros: {len(df_filtrado)}")
+    st.write("Filtros aplicados:", filtros)
     
     # Agrupar por cliente
     movimentacao = df_filtrado.groupby('CLIENTE')['id'].count().reset_index()
     movimentacao.columns = ['cliente', 'quantidade']
+    
+    st.write(f"Clientes únicos após agrupamento: {len(movimentacao)}")
     
     return movimentacao
 
@@ -294,6 +289,10 @@ def mostrar_aba(dados, filtros):
     
     try:
         st.session_state['tema_atual'] = detectar_tema()
+        
+        # Debug dos filtros
+        st.write("Período 1:", filtros['periodo1'])
+        st.write("Período 2:", filtros['periodo2'])
         
         mov_p1 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo1')
         mov_p2 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo2')
