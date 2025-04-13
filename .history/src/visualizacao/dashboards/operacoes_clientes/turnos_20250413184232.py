@@ -181,14 +181,14 @@ def criar_graficos_turno(metricas_p1, metricas_p2, filtros):
         legend={
             'orientation': 'h',
             'yanchor': 'bottom',
-            'y': 1.15,  # Aumentado de 1.02 para 1.15
+            'y': 1.02,
             'xanchor': 'right',
             'x': 1
         },
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor=cores_tema['fundo'],
         font={'color': cores_tema['texto']},
-        margin=dict(l=20, r=20, t=100, b=20)  # Aumentado t de 80 para 100
+        margin=dict(l=20, r=20, t=80, b=20)
     )
     
     # Atualizar eixos
@@ -238,33 +238,30 @@ def mostrar_aba(dados, filtros):
         # Insights
         st.subheader("📊 Insights")
         with st.expander("Ver insights"):
-            col1, col2 = st.columns(2)
+            # Encontrar turno mais movimentado no período 1
+            turno_max_p1 = metricas_p1.loc[metricas_p1['id'].idxmax()]
             
-            with col1:
-                st.markdown("### Período 1")
-                st.markdown("---")
-                turno_max_p1 = metricas_p1.loc[metricas_p1['id'].idxmax()]
-                st.markdown(f"**Turno mais movimentado: {turno_max_p1['turno']}**")
-                st.markdown(f"📊 {turno_max_p1['id']} atendimentos")
-                st.markdown(f"⏱️ {turno_max_p1['tempo_permanencia']:.1f} min de permanência média")
-                
-                st.markdown("\n**Distribuição dos Atendimentos:**")
-                for _, row in metricas_p1.iterrows():
-                    percentual = (row['id'] / metricas_p1['id'].sum()) * 100
-                    st.markdown(f"- Turno {row['turno']}: `{percentual:.1f}%`")
+            # Encontrar turno mais movimentado no período 2
+            turno_max_p2 = metricas_p2.loc[metricas_p2['id'].idxmax()]
             
-            with col2:
-                st.markdown("### Período 2")
-                st.markdown("---")
-                turno_max_p2 = metricas_p2.loc[metricas_p2['id'].idxmax()]
-                st.markdown(f"**Turno mais movimentado: {turno_max_p2['turno']}**")
-                st.markdown(f"📊 {turno_max_p2['id']} atendimentos")
-                st.markdown(f"⏱️ {turno_max_p2['tempo_permanencia']:.1f} min de permanência média")
-                
-                st.markdown("\n**Distribuição dos Atendimentos:**")
-                for _, row in metricas_p2.iterrows():
-                    percentual = (row['id'] / metricas_p2['id'].sum()) * 100
-                    st.markdown(f"- Turno {row['turno']}: `{percentual:.1f}%`")
+            st.write("#### Principais Observações:")
+            
+            st.write(f"**Período 1 - Turno mais movimentado:** Turno {turno_max_p1['turno']}")
+            st.write(f"- {turno_max_p1['id']} atendimentos")
+            st.write(f"- {turno_max_p1['tempo_permanencia']:.1f} min de permanência média")
+            
+            st.write(f"\n**Período 2 - Turno mais movimentado:** Turno {turno_max_p2['turno']}")
+            st.write(f"- {turno_max_p2['id']} atendimentos")
+            st.write(f"- {turno_max_p2['tempo_permanencia']:.1f} min de permanência média")
+            
+            # Comparação entre turnos
+            st.write("\n**Distribuição dos Atendimentos:**")
+            for _, row in metricas_p1.iterrows():
+                percentual = (row['id'] / metricas_p1['id'].sum()) * 100
+                st.write(f"- Período 1 - Turno {row['turno']}: {percentual:.1f}% dos atendimentos")
+            for _, row in metricas_p2.iterrows():
+                percentual = (row['id'] / metricas_p2['id'].sum()) * 100
+                st.write(f"- Período 2 - Turno {row['turno']}: {percentual:.1f}% dos atendimentos")
     
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise por Turno")

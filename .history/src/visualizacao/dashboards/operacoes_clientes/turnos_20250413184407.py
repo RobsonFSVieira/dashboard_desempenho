@@ -181,14 +181,14 @@ def criar_graficos_turno(metricas_p1, metricas_p2, filtros):
         legend={
             'orientation': 'h',
             'yanchor': 'bottom',
-            'y': 1.15,  # Aumentado de 1.02 para 1.15
+            'y': 1.02,
             'xanchor': 'right',
             'x': 1
         },
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor=cores_tema['fundo'],
         font={'color': cores_tema['texto']},
-        margin=dict(l=20, r=20, t=100, b=20)  # Aumentado t de 80 para 100
+        margin=dict(l=20, r=20, t=80, b=20)
     )
     
     # Atualizar eixos
