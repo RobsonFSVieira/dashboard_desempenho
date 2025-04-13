@@ -35,78 +35,21 @@ def formatar_tempo(minutos):
     segundos = int((minutos - minutos_int) * 60)
     return f"{minutos_int:02d}:{segundos:02d}"
 
-def converter_para_minutos(valor):
-    """Converte diferentes formatos de tempo para minutos"""
-    if pd.isna(valor):
-        return None
-    if isinstance(valor, (int, float)):
-        return float(valor)
-    if isinstance(valor, str):
-        try:
-            # Tenta converter string HH:MM ou HH:MM:SS para minutos
-            partes = valor.split(':')
-            if len(partes) == 2:
-                horas, minutos = map(int, partes)
-                return horas * 60 + minutos
-            elif len(partes) == 3:
-                horas, minutos, segundos = map(int, partes)
-                return horas * 60 + minutos + segundos / 60
-        except:
-            return None
-    if hasattr(valor, 'hour') and hasattr(valor, 'minute'):  # datetime.time object
-        return valor.hour * 60 + valor.minute
-    return None
-
-def determinar_turno(hora):
-    """Determina o turno com base na hora"""
-    if isinstance(hora, pd.Timestamp):
-        hora = hora.hour
-    
-    if 7 <= hora < 15:
-        return 'TURNO A'
-    elif 15 <= hora < 23:
-        return 'TURNO B'
-    else:  # 23-7
-        return 'TURNO C'
-
 def calcular_tempos_por_periodo(dados, filtros, periodo, grupo='CLIENTE'):
     """Calcula tempos médios de atendimento por cliente/operação no período"""
     df = dados['base']
     df_medias = dados['medias']
-    
-    # Debug info
-    st.write(f"Total registros antes dos filtros: {len(df)}")
     
     # Aplicar filtros de data
     mask = (
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    df_filtrado = df[mask].copy()
-    st.write(f"Registros após filtro de data: {len(df_filtrado)}")
+    df_filtrado = df[mask]
     
-    # Determina o turno com base no horário de retirada
-    df_filtrado['TURNO'] = df_filtrado['retirada'].apply(determinar_turno)
-    
-    # Aplicar filtros de cliente apenas se não for 'Todos'
-    if filtros['cliente'] != ['Todos']:
+    # Aplicar filtros adicionais
+    if filtros['cliente'] != ['Todos'] and grupo == 'OPERAÇÃO':
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
-        st.write(f"Registros após filtro de cliente: {len(df_filtrado)}")
-    
-    # Aplicar filtro de operação apenas se não for 'Todas'
-    if filtros['operacao'] != ['Todas']:
-        df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
-        st.write(f"Registros após filtro de operação: {len(df_filtrado)}")
-    
-    # Aplicar filtro de turno apenas se não for 'Todos'
-    if filtros['turno'] != ['Todos']:
-        df_filtrado = df_filtrado[df_filtrado['TURNO'].isin(filtros['turno'])]
-        st.write(f"Registros após filtro de turno: {len(df_filtrado)}")
-    
-    # Verifica se há dados após todos os filtros
-    if len(df_filtrado) == 0:
-        st.warning(f"Nenhum dado encontrado para o período {periodo} com os filtros selecionados.")
-        return pd.DataFrame()  # Retorna DataFrame vazio
     
     # Calcula média de atendimento
     tempos = df_filtrado.groupby(grupo)['tpatend'].agg([
@@ -123,22 +66,26 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
     """Cria gráfico comparativo de tempos médios entre períodos"""
     cores_tema = obter_cores_tema()
     
-    # Ajusta os dados de meta se disponíveis
+    # Debug para verificar a estrutura dos dados
     if dados_medias is not None:
+        st.write("Estrutura dos dados_medias:")
+        st.write("Colunas:", dados_medias.columns.tolist())
+        st.write("Primeiras linhas:", dados_medias.head())
+        
+        # Tenta ajustar o DataFrame
         try:
             # Pega a primeira linha com dados (ignorando cabeçalhos)
-            dados_medias = dados_medias.iloc[1:].copy()
+            dados_medias = dados_medias.iloc[1:].copy()  # Skip header row
+            # Renomeia as colunas adequadamente
             dados_medias.columns = ['CLIENTE', 'OPERAÇÃO', 'TEMPO DE ATENDIMENTO (MEDIA)', 'TURNO A', 'TURNO B']
+            # Reseta o index para ter números sequenciais
             dados_medias = dados_medias.reset_index(drop=True)
             
-            # Converte a coluna de tempo para numérico e remove NaN
-            dados_medias['TEMPO DE ATENDIMENTO (MEDIA)'] = pd.to_numeric(
-                dados_medias['TEMPO DE ATENDIMENTO (MEDIA)'],
-                errors='coerce'
-            )
-            dados_medias = dados_medias.dropna(subset=['TEMPO DE ATENDIMENTO (MEDIA)'])
+            st.write("Dados após ajuste:")
+            st.write("Colunas:", dados_medias.columns.tolist())
+            st.write("Primeiras linhas:", dados_medias.head())
         except Exception as e:
-            dados_medias = None
+            st.warning(f"Erro ao ajustar dados_medias: {str(e)}")
     
     # Merge dos dados dos dois períodos
     df_comp = pd.merge(
@@ -169,26 +116,9 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
     # Calcula o tamanho do texto baseado na largura das barras
     max_valor = max(df_comp['media_p1'].max(), df_comp['media_p2'].max())
     
-    def calcular_tamanho_fonte(valor, is_periodo1=False, grupo='CLIENTE'):
-        """Calcula o tamanho da fonte baseado no valor, período e grupo"""
-        # Tamanhos base diferentes para cada grupo/período
-        if grupo == 'OPERAÇÃO':
-            if is_periodo1:
-                min_size, max_size = 18, 24  # Maior ainda para Operação período 1
-            else:
-                min_size, max_size = 16, 22  # Maior para Operação período 2
-        else:
-            if is_periodo1:
-                min_size, max_size = 16, 22  # Mantém o anterior para Cliente período 1
-            else:
-                min_size, max_size = 14, 20  # Mantém o anterior para Cliente período 2
-        
-        # Usa uma escala ainda mais suave para valores pequenos em Operação
-        if grupo == 'OPERAÇÃO':
-            tamanho = min_size + (max_size - min_size) * (valor / max_valor) ** 0.15
-        else:
-            tamanho = min_size + (max_size - min_size) * (valor / max_valor) ** 0.25
-        
+    def calcular_tamanho_fonte(valor):
+        min_size, max_size = 12, 20
+        tamanho = max_size * (valor / max_valor)
         return max(min_size, min(max_size, tamanho))
     
     # Adiciona barras para período 1
@@ -202,7 +132,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
             textposition='inside',
             marker_color=cores_tema['primaria'],
             textfont={
-                'size': df_comp['media_p1'].apply(lambda x: calcular_tamanho_fonte(x, True, grupo)),
+                'size': df_comp['media_p1'].apply(calcular_tamanho_fonte),
                 'color': '#ffffff'
             },
             opacity=0.85
@@ -220,7 +150,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
             textposition='inside',
             marker_color=cores_tema['secundaria'],
             textfont={
-                'size': df_comp['media_p2'].apply(lambda x: calcular_tamanho_fonte(x, False, grupo)),
+                'size': df_comp['media_p2'].apply(calcular_tamanho_fonte),
                 'color': '#000000'
             },
             opacity=0.85
@@ -228,35 +158,40 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
     )
     
     # Adiciona linha de meta se disponível
-    if dados_medias is not None and isinstance(dados_medias, pd.DataFrame) and not dados_medias.empty:
+    if dados_medias is not None and isinstance(dados_medias, pd.DataFrame):
         try:
+            # Verifica se existe a coluna de meta
             coluna_meta = 'TEMPO DE ATENDIMENTO (MEDIA)'
             if coluna_meta in dados_medias.columns:
-                metas = dados_medias[[grupo, coluna_meta]].dropna(subset=[coluna_meta])
+                # Verifica se o grupo está nas colunas ou no índice
+                if grupo in dados_medias.columns:
+                    metas = dados_medias[[grupo, coluna_meta]]
+                else:
+                    # Se o grupo estiver no índice, reseta o índice
+                    metas = dados_medias.reset_index()
                 
-                if not metas.empty:
-                    df_metas = pd.merge(df_comp[[grupo]], metas, on=grupo, how='left')
-                    df_metas = df_metas.dropna(subset=[coluna_meta])
-                    
-                    if not df_metas.empty:
-                        fig.add_trace(
-                            go.Scatter(
-                                name='Meta Individual',
-                                y=df_metas[grupo],
-                                x=df_metas[coluna_meta],
-                                mode='markers+text',
-                                marker=dict(
-                                    symbol='diamond',
-                                    size=10,
-                                    color=cores_tema['erro']
-                                ),
-                                text=[f"{formatar_tempo(x)} min" for x in df_metas[coluna_meta]],
-                                textposition='middle right',
-                                textfont=dict(color=cores_tema['erro'])
-                            )
+                # Merge com os dados comparativos
+                df_metas = pd.merge(df_comp[[grupo]], metas, on=grupo, how='left')
+                
+                if not df_metas.empty:
+                    fig.add_trace(
+                        go.Scatter(
+                            name='Meta Individual',
+                            y=df_metas[grupo],
+                            x=df_metas[coluna_meta],
+                            mode='markers+text',
+                            marker=dict(
+                                symbol='diamond',
+                                size=10,
+                                color=cores_tema['erro']
+                            ),
+                            text=[f"{formatar_tempo(x)} min" for x in df_metas[coluna_meta]],
+                            textposition='middle right',
+                            textfont=dict(color=cores_tema['erro'])
                         )
+                    )
         except Exception as e:
-            pass  # Silently ignore meta plotting errors
+            st.warning(f"Não foi possível adicionar as metas ao gráfico: {str(e)}")
     
     # Adiciona anotações de variação
     for i, row in df_comp.iterrows():
@@ -359,10 +294,6 @@ def gerar_insights(df_comp, grupo='CLIENTE', titulo="Insights", dados_medias=Non
                 st.markdown("📋 **Análise de Metas**")
                 
                 try:
-                    # Converte valores de meta para minutos
-                    dados_medias[coluna_meta] = dados_medias[coluna_meta].apply(converter_para_minutos)
-                    dados_medias = dados_medias.dropna(subset=[coluna_meta])
-                    
                     # Merge com as metas
                     df_analise = pd.merge(
                         df_comp,

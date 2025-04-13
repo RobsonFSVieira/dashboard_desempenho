@@ -103,9 +103,9 @@ def criar_filtros():
                 'inicio': data_inicio_p2,
                 'fim': data_fim_p2
             },
-            'cliente': cliente if 'Todos' not in cliente else ['Todos'],
-            'operacao': operacao if 'Todas' not in operacao else ['Todas'],
-            'turno': turno if 'Todos' not in turno else ['Todos'],
+            'cliente': ["Todos"] if "Todos" in cliente else cliente,
+            'operacao': ["Todas"] if "Todas" in operacao else operacao,
+            'turno': ["Todos"] if "Todos" in turno else [t for t in turno if t != "Todos"],
             'meta_permanencia': meta_permanencia
         }
         

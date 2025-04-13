@@ -74,39 +74,28 @@ def calcular_tempos_por_periodo(dados, filtros, periodo, grupo='CLIENTE'):
     df = dados['base']
     df_medias = dados['medias']
     
-    # Debug info
-    st.write(f"Total registros antes dos filtros: {len(df)}")
-    
     # Aplicar filtros de data
     mask = (
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    df_filtrado = df[mask].copy()
-    st.write(f"Registros após filtro de data: {len(df_filtrado)}")
+    df_filtrado = df[mask].copy()  # Faz uma cópia para evitar SettingWithCopyWarning
     
     # Determina o turno com base no horário de retirada
     df_filtrado['TURNO'] = df_filtrado['retirada'].apply(determinar_turno)
     
-    # Aplicar filtros de cliente apenas se não for 'Todos'
+    # Aplicar filtros de cliente
     if filtros['cliente'] != ['Todos']:
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
-        st.write(f"Registros após filtro de cliente: {len(df_filtrado)}")
     
-    # Aplicar filtro de operação apenas se não for 'Todas'
-    if filtros['operacao'] != ['Todas']:
-        df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
-        st.write(f"Registros após filtro de operação: {len(df_filtrado)}")
+    # Aplicar filtro de operação
+    if filtros.get('operacao') and filtros['operacao'] != ['Todos']:
+        if 'OPERAÇÃO' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
     
-    # Aplicar filtro de turno apenas se não for 'Todos'
-    if filtros['turno'] != ['Todos']:
+    # Aplicar filtro de turno
+    if filtros.get('turno') and filtros['turno'] != ['Todos']:
         df_filtrado = df_filtrado[df_filtrado['TURNO'].isin(filtros['turno'])]
-        st.write(f"Registros após filtro de turno: {len(df_filtrado)}")
-    
-    # Verifica se há dados após todos os filtros
-    if len(df_filtrado) == 0:
-        st.warning(f"Nenhum dado encontrado para o período {periodo} com os filtros selecionados.")
-        return pd.DataFrame()  # Retorna DataFrame vazio
     
     # Calcula média de atendimento
     tempos = df_filtrado.groupby(grupo)['tpatend'].agg([

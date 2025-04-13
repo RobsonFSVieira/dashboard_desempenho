@@ -57,56 +57,21 @@ def converter_para_minutos(valor):
         return valor.hour * 60 + valor.minute
     return None
 
-def determinar_turno(hora):
-    """Determina o turno com base na hora"""
-    if isinstance(hora, pd.Timestamp):
-        hora = hora.hour
-    
-    if 7 <= hora < 15:
-        return 'TURNO A'
-    elif 15 <= hora < 23:
-        return 'TURNO B'
-    else:  # 23-7
-        return 'TURNO C'
-
 def calcular_tempos_por_periodo(dados, filtros, periodo, grupo='CLIENTE'):
     """Calcula tempos médios de atendimento por cliente/operação no período"""
     df = dados['base']
     df_medias = dados['medias']
-    
-    # Debug info
-    st.write(f"Total registros antes dos filtros: {len(df)}")
     
     # Aplicar filtros de data
     mask = (
         (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    df_filtrado = df[mask].copy()
-    st.write(f"Registros após filtro de data: {len(df_filtrado)}")
+    df_filtrado = df[mask]
     
-    # Determina o turno com base no horário de retirada
-    df_filtrado['TURNO'] = df_filtrado['retirada'].apply(determinar_turno)
-    
-    # Aplicar filtros de cliente apenas se não for 'Todos'
-    if filtros['cliente'] != ['Todos']:
+    # Aplicar filtros adicionais
+    if filtros['cliente'] != ['Todos'] and grupo == 'OPERAÇÃO':
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
-        st.write(f"Registros após filtro de cliente: {len(df_filtrado)}")
-    
-    # Aplicar filtro de operação apenas se não for 'Todas'
-    if filtros['operacao'] != ['Todas']:
-        df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
-        st.write(f"Registros após filtro de operação: {len(df_filtrado)}")
-    
-    # Aplicar filtro de turno apenas se não for 'Todos'
-    if filtros['turno'] != ['Todos']:
-        df_filtrado = df_filtrado[df_filtrado['TURNO'].isin(filtros['turno'])]
-        st.write(f"Registros após filtro de turno: {len(df_filtrado)}")
-    
-    # Verifica se há dados após todos os filtros
-    if len(df_filtrado) == 0:
-        st.warning(f"Nenhum dado encontrado para o período {periodo} com os filtros selecionados.")
-        return pd.DataFrame()  # Retorna DataFrame vazio
     
     # Calcula média de atendimento
     tempos = df_filtrado.groupby(grupo)['tpatend'].agg([
@@ -169,26 +134,9 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
     # Calcula o tamanho do texto baseado na largura das barras
     max_valor = max(df_comp['media_p1'].max(), df_comp['media_p2'].max())
     
-    def calcular_tamanho_fonte(valor, is_periodo1=False, grupo='CLIENTE'):
-        """Calcula o tamanho da fonte baseado no valor, período e grupo"""
-        # Tamanhos base diferentes para cada grupo/período
-        if grupo == 'OPERAÇÃO':
-            if is_periodo1:
-                min_size, max_size = 18, 24  # Maior ainda para Operação período 1
-            else:
-                min_size, max_size = 16, 22  # Maior para Operação período 2
-        else:
-            if is_periodo1:
-                min_size, max_size = 16, 22  # Mantém o anterior para Cliente período 1
-            else:
-                min_size, max_size = 14, 20  # Mantém o anterior para Cliente período 2
-        
-        # Usa uma escala ainda mais suave para valores pequenos em Operação
-        if grupo == 'OPERAÇÃO':
-            tamanho = min_size + (max_size - min_size) * (valor / max_valor) ** 0.15
-        else:
-            tamanho = min_size + (max_size - min_size) * (valor / max_valor) ** 0.25
-        
+    def calcular_tamanho_fonte(valor):
+        min_size, max_size = 12, 20
+        tamanho = max_size * (valor / max_valor)
         return max(min_size, min(max_size, tamanho))
     
     # Adiciona barras para período 1
@@ -202,7 +150,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
             textposition='inside',
             marker_color=cores_tema['primaria'],
             textfont={
-                'size': df_comp['media_p1'].apply(lambda x: calcular_tamanho_fonte(x, True, grupo)),
+                'size': df_comp['media_p1'].apply(calcular_tamanho_fonte),
                 'color': '#ffffff'
             },
             opacity=0.85
@@ -220,7 +168,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, dados_medias, grupo='CLIENTE',
             textposition='inside',
             marker_color=cores_tema['secundaria'],
             textfont={
-                'size': df_comp['media_p2'].apply(lambda x: calcular_tamanho_fonte(x, False, grupo)),
+                'size': df_comp['media_p2'].apply(calcular_tamanho_fonte),
                 'color': '#000000'
             },
             opacity=0.85
