@@ -170,8 +170,9 @@ def mostrar_aba(dados, filtros):
             hora_pico = picos.idxmax()
             dias_mov = df.groupby(['dia_semana', 'data'])['id'].count().groupby('dia_semana').mean()
             dia_mais_mov = dias_mov.idxmax()
-            horarios_criticos = picos[picos > picos.mean() + picos.std()]
+            horarios_criticos = picos[picos > picos.mean() + picos.std()]  # Movido para cima
             
+            # Análise de comboios
             def identificar_comboios(grupo):
                 return (grupo['id'].count() > grupo['id'].count().mean() + grupo['id'].count().std())
             
@@ -179,72 +180,67 @@ def mostrar_aba(dados, filtros):
             comboios_por_data = df.groupby(['data', 'periodo_15min'])['id'].count()
             threshold = int(comboios_por_data.mean() + comboios_por_data.std())
             
-            # 1. Visão Geral
-            st.markdown("### 📈 Visão Geral")
-            col_metricas1, col_metricas2 = st.columns(2)
+            # Layout com colunas
+            col1, col2 = st.columns(2)
             
-            with col_metricas1:
-                media_diaria = int(pivot.mean(axis=1).mean())
+            with col1:
+                st.write("### 📈 Métricas Principais")
+                # Média diária baseada nas linhas do mapa de calor
+                media_diaria = int(pivot.mean(axis=1).mean())  # Média das somas diárias
                 total_dias = len(pivot.index)
                 st.metric(
-                    "📊 Média diária de senhas",
+                    "Média diária de senhas",
                     f"{media_diaria}",
                     f"Total de {total_dias} dias analisados"
                 )
-            
-            with col_metricas2:
-                valores_flat = pivot.values.flatten()
-                max_valor = int(np.max(valores_flat))
-                st.metric(
-                    "🔥 Pico máximo registrado",
-                    f"{max_valor} senhas",
-                    "em uma hora"
-                )
-            
-            # 2. Análise Temporal
-            st.markdown("### ⏱️ Análise Temporal")
-            col_temp1, col_temp2 = st.columns(2)
-            
-            with col_temp1:
-                st.markdown("#### ⏰ Horários Críticos")
-                for hora, qtd in horarios_criticos.items():
+                
+                st.write("### ⏰ Horários Críticos")
+                for hora, qtd in horarios_criticos.items():  # Agora usa a variável definida acima
                     st.write(f"- **{hora:02d}h**: {int(qtd)} retiradas/dia")
             
-            with col_temp2:
-                st.markdown("#### 📅 Padrão Semanal")
+            with col2:
+                st.write("### 📅 Padrão Semanal")
+                # Ordenar dias da semana começando pelo domingo
                 ordem_dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
                             'Quinta-feira', 'Sexta-feira', 'Sábado']
                 dias_mov_ordenado = dias_mov.reindex(ordem_dias).dropna()
                 for dia, media in dias_mov_ordenado.items():
                     st.write(f"- **{dia}**: {int(media)} retiradas")
-            
-            # 3. Análise de Comboios
-            st.markdown("### 🚦 Análise de Comboios")
-            col_comb1, col_comb2 = st.columns(2)
-            
-            with col_comb1:
-                st.markdown("#### 📊 Maiores Concentrações (por hora)")
-                top_3_indices = np.argsort(valores_flat)[-3:][::-1]
+                
+                st.write("### 🚦 Picos de Comboio")
+                # Encontrar os 3 maiores picos da tabela
+                valores_flat = pivot.values.flatten()  # Transformar matriz em array
+                top_3_indices = np.argsort(valores_flat)[-3:][::-1]  # Índices dos 3 maiores valores
+                
+                st.metric(
+                    "Maior concentração registrada",
+                    f"{int(valores_flat[top_3_indices[0]])} senhas",
+                    f"Picos com maior volume"
+                )
+                
+                # Mostrar os 3 maiores picos do mapa de calor
+                picos_info = []
                 for idx in top_3_indices:
-                    linha = idx // pivot.shape[1]
-                    coluna = idx % pivot.shape[1]
+                    linha = idx // pivot.shape[1]  # Índice da linha (data)
+                    coluna = idx % pivot.shape[1]  # Índice da coluna (hora)
                     data = pivot.index[linha]
                     valor = int(valores_flat[idx])
-                    st.write(f"- **{data} {coluna:02d}h**: {valor} senhas/hora")
-            
-            with col_comb2:
-                st.markdown("#### ⚠️ Períodos Críticos (15 min)")
+                    st.write(f"- **{data} {coluna:02d}h**: {valor} senhas")
+                
+                # Mostrar picos de comboio (períodos de 15 min)
+                st.write("**Períodos críticos (15 min):**")
                 if not comboios.empty:
                     top_comboios = comboios_por_data.sort_values(ascending=False).head(3)
                     for (data, periodo), qtd in top_comboios.items():
-                        st.write(f"- **{data.strftime('%d/%m/%Y')} {periodo.strftime('%H:%M')}**: {qtd} senhas")
+                        st.write(f"- **{data.strftime('%d/%m/%Y')} {periodo.strftime('%H:%M')}**: {qtd}")
             
-            # 4. Plano de Ação
-            st.markdown("### 💡 Plano de Ação")
+            # Recomendações em largura total
+            st.write("### 💡 Plano de Ação")
+            
             col_rec1, col_rec2 = st.columns(2)
             
             with col_rec1:
-                st.markdown("#### 🎯 Ações Imediatas")
+                st.write("#### Ações Imediatas")
                 st.write(f"""
                 - Reforço de equipe: {hora_pico:02d}h - {(hora_pico + 1) % 24:02d}h
                 - Prioridade: {dia_mais_mov}s
@@ -252,7 +248,7 @@ def mostrar_aba(dados, filtros):
                 """)
             
             with col_rec2:
-                st.markdown("#### 📋 Ações Preventivas")
+                st.write("#### Ações Preventivas")
                 st.write("""
                 - Implementar agendamento prévio
                 - Distribuir senhas por horário

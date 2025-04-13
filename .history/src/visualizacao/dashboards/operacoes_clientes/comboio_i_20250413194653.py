@@ -179,8 +179,9 @@ def mostrar_aba(dados, filtros):
             comboios_por_data = df.groupby(['data', 'periodo_15min'])['id'].count()
             threshold = int(comboios_por_data.mean() + comboios_por_data.std())
             
+            # Nova distribuição dos elementos
             # 1. Visão Geral
-            st.markdown("### 📈 Visão Geral")
+            st.write("## Visão Geral")
             col_metricas1, col_metricas2 = st.columns(2)
             
             with col_metricas1:
@@ -202,16 +203,16 @@ def mostrar_aba(dados, filtros):
                 )
             
             # 2. Análise Temporal
-            st.markdown("### ⏱️ Análise Temporal")
+            st.write("## Análise Temporal")
             col_temp1, col_temp2 = st.columns(2)
             
             with col_temp1:
-                st.markdown("#### ⏰ Horários Críticos")
+                st.write("### ⏰ Horários Críticos")
                 for hora, qtd in horarios_criticos.items():
                     st.write(f"- **{hora:02d}h**: {int(qtd)} retiradas/dia")
             
             with col_temp2:
-                st.markdown("#### 📅 Padrão Semanal")
+                st.write("### 📅 Padrão Semanal")
                 ordem_dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
                             'Quinta-feira', 'Sexta-feira', 'Sábado']
                 dias_mov_ordenado = dias_mov.reindex(ordem_dias).dropna()
@@ -219,11 +220,11 @@ def mostrar_aba(dados, filtros):
                     st.write(f"- **{dia}**: {int(media)} retiradas")
             
             # 3. Análise de Comboios
-            st.markdown("### 🚦 Análise de Comboios")
+            st.write("## 🚦 Análise de Comboios")
             col_comb1, col_comb2 = st.columns(2)
             
             with col_comb1:
-                st.markdown("#### 📊 Maiores Concentrações (por hora)")
+                st.write("### Maiores Concentrações")
                 top_3_indices = np.argsort(valores_flat)[-3:][::-1]
                 for idx in top_3_indices:
                     linha = idx // pivot.shape[1]
@@ -233,18 +234,18 @@ def mostrar_aba(dados, filtros):
                     st.write(f"- **{data} {coluna:02d}h**: {valor} senhas/hora")
             
             with col_comb2:
-                st.markdown("#### ⚠️ Períodos Críticos (15 min)")
+                st.write("### Períodos Críticos (15 min)")
                 if not comboios.empty:
                     top_comboios = comboios_por_data.sort_values(ascending=False).head(3)
                     for (data, periodo), qtd in top_comboios.items():
                         st.write(f"- **{data.strftime('%d/%m/%Y')} {periodo.strftime('%H:%M')}**: {qtd} senhas")
             
             # 4. Plano de Ação
-            st.markdown("### 💡 Plano de Ação")
+            st.write("## 💡 Recomendações")
             col_rec1, col_rec2 = st.columns(2)
             
             with col_rec1:
-                st.markdown("#### 🎯 Ações Imediatas")
+                st.write("### Ações Imediatas")
                 st.write(f"""
                 - Reforço de equipe: {hora_pico:02d}h - {(hora_pico + 1) % 24:02d}h
                 - Prioridade: {dia_mais_mov}s
@@ -252,7 +253,7 @@ def mostrar_aba(dados, filtros):
                 """)
             
             with col_rec2:
-                st.markdown("#### 📋 Ações Preventivas")
+                st.write("### Ações Preventivas")
                 st.write("""
                 - Implementar agendamento prévio
                 - Distribuir senhas por horário
