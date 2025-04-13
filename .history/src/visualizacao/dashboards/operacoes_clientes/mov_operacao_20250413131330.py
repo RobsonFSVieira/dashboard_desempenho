@@ -208,7 +208,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Movimentação por Operação"""
-    st.header("Movimentação por Operação")
+    st.header("Movimentação por Operação")  # Alterado título
     
     try:
         # Adiciona um key único que muda quando o tema muda
@@ -222,14 +222,10 @@ def mostrar_aba(dados, filtros):
             st.warning("Não há dados para exibir no período selecionado.")
             return
         
-        # Cria e exibe o gráfico comparativo com key baseada no tema e tipo
+        # Cria e exibe o gráfico comparativo com key baseada no tema
         fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
         if fig:
-            st.plotly_chart(
-                fig, 
-                use_container_width=True, 
-                key=f"grafico_operacao_{st.session_state['tema_atual']}"  # Key única para operação
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"grafico_{st.session_state['tema_atual']}")
     
     except Exception as e:
         st.error(f"Erro ao mostrar aba: {str(e)}")

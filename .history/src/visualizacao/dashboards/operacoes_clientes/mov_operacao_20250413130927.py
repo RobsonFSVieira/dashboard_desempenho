@@ -38,29 +38,32 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     return movimentacao
 
 def detectar_tema():
-    """Detecta se o tema atual é claro ou escuro"""
-    # Verifica o tema através do query params do Streamlit
-    try:
-        theme_param = st.query_params.get('theme', None)
-        if theme_param:
-            return json.loads(theme_param)['base']
-        else:
-            return st.config.get_option('theme.base')
-    except:
-        return 'light'
+    """Detecta o tema atual do Streamlit"""
+    return st.session_state.get('tema', 'default')
 
 def obter_cores_tema():
-    """Retorna as cores baseadas no tema atual"""
-    is_dark = detectar_tema() == 'dark'
-    return {
-        'primaria': '#1a5fb4' if is_dark else '#1864ab',      # Azul mais escuro para período 1
-        'secundaria': '#4dabf7' if is_dark else '#83c9ff',    # Azul mais claro para período 2
-        'texto': '#ffffff' if is_dark else '#2c3e50',         # Cor do texto
-        'fundo': '#0e1117' if is_dark else '#ffffff',         # Cor de fundo
-        'grid': '#2c3e50' if is_dark else '#e9ecef',         # Cor da grade
-        'sucesso': '#2dd4bf' if is_dark else '#29b09d',      # Verde
-        'erro': '#ff6b6b' if is_dark else '#ff5757'          # Vermelho
-    }
+    """Obtém as cores do tema atual"""
+    tema = detectar_tema()
+    if tema == 'dark':
+        return {
+            'primaria': '#0068c9',
+            'secundaria': '#83c9ff',
+            'sucesso': '#29b09d',
+            'erro': '#ff5757',
+            'texto': '#ffffff',
+            'fundo': '#303030',
+            'grid': '#505050'
+        }
+    else:
+        return {
+            'primaria': '#0068c9',
+            'secundaria': '#83c9ff',
+            'sucesso': '#29b09d',
+            'erro': '#ff5757',
+            'texto': '#000000',
+            'fundo': '#ffffff',
+            'grid': '#e9ecef'
+        }
 
 def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     try:
@@ -208,7 +211,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Movimentação por Operação"""
-    st.header("Movimentação por Operação")
+    st.header("Movimentação por Operação")  # Alterado título
     
     try:
         # Adiciona um key único que muda quando o tema muda
@@ -222,14 +225,10 @@ def mostrar_aba(dados, filtros):
             st.warning("Não há dados para exibir no período selecionado.")
             return
         
-        # Cria e exibe o gráfico comparativo com key baseada no tema e tipo
+        # Cria e exibe o gráfico comparativo com key baseada no tema
         fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
         if fig:
-            st.plotly_chart(
-                fig, 
-                use_container_width=True, 
-                key=f"grafico_operacao_{st.session_state['tema_atual']}"  # Key única para operação
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"grafico_{st.session_state['tema_atual']}")
     
     except Exception as e:
         st.error(f"Erro ao mostrar aba: {str(e)}")

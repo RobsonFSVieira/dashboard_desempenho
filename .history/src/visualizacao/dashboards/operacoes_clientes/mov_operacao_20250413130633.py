@@ -31,7 +31,7 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     
     df_filtrado = df[mask]
     
-    # Agrupar por operação ao invés de cliente
+    # Agrupar por operação
     movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()
     movimentacao.columns = ['operacao', 'quantidade']
     
@@ -39,7 +39,6 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
 
 def detectar_tema():
     """Detecta se o tema atual é claro ou escuro"""
-    # Verifica o tema através do query params do Streamlit
     try:
         theme_param = st.query_params.get('theme', None)
         if theme_param:
@@ -68,7 +67,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         df_comp = pd.merge(
             dados_p1, 
             dados_p2, 
-            on='operacao',  # Usando operacao ao invés de cliente
+            on='operacao', 
             suffixes=('_p1', '_p2')
         )
         
@@ -97,13 +96,13 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         
         def calcular_tamanho_fonte(valor, tipo='barra'):
             if tipo == 'barra':
-                min_size, max_size = 12, 20
+                min_size, max_size = 12, 20  # Range para barras
                 tamanho = max_size * (valor / max_valor)
                 return max(min_size, min(max_size, tamanho))
             else:  # tipo == 'porcentagem'
                 return 14  # Tamanho fixo para as porcentagens
 
-        # Adiciona barras para período 1
+        # Adiciona barras para período 1 com estilos atualizados
         fig.add_trace(go.Bar(
             name=legenda_p1,
             y=df_comp['operacao'],
@@ -119,7 +118,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             opacity=0.85
         ))
         
-        # Adiciona barras para período 2
+        # Adiciona barras para período 2 com estilos atualizados
         fig.add_trace(go.Bar(
             name=legenda_p2,
             y=df_comp['operacao'],
@@ -135,7 +134,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             opacity=0.85
         ))
 
-        # Adiciona anotações de variação percentual
+        # Adiciona anotações de variação percentual com tamanho fixo
         df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         for i, row in df_comp.iterrows():
             cor = cores_tema['sucesso'] if row['variacao'] >= 0 else cores_tema['erro']
@@ -151,10 +150,10 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 xshift=10
             )
         
-        # Atualiza layout
+        # Atualiza layout com configurações visuais melhoradas
         fig.update_layout(
             title={
-                'text': 'Comparativo de Movimentação por Operação',  # Alterado título
+                'text': 'Comparativo de Movimentação por Operação',
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
             barmode='stack',
@@ -178,7 +177,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             paper_bgcolor=cores_tema['fundo']
         )
         
-        # Atualiza eixos
+        # Atualiza eixos com estilos consistentes
         fig.update_xaxes(
             title='Quantidade de Atendimentos',
             title_font={'color': cores_tema['texto']},
@@ -191,7 +190,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         )
         
         fig.update_yaxes(
-            title='Operação',  # Alterado título do eixo
+            title='Operação',
             title_font={'color': cores_tema['texto']},
             tickfont={'color': cores_tema['texto']},
             gridcolor=cores_tema['grid'],
@@ -222,14 +221,10 @@ def mostrar_aba(dados, filtros):
             st.warning("Não há dados para exibir no período selecionado.")
             return
         
-        # Cria e exibe o gráfico comparativo com key baseada no tema e tipo
+        # Cria e exibe o gráfico comparativo com key baseada no tema
         fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
         if fig:
-            st.plotly_chart(
-                fig, 
-                use_container_width=True, 
-                key=f"grafico_operacao_{st.session_state['tema_atual']}"  # Key única para operação
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"grafico_{st.session_state['tema_atual']}")
     
     except Exception as e:
         st.error(f"Erro ao mostrar aba: {str(e)}")
