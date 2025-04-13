@@ -37,19 +37,7 @@ def obter_cores_tema():
 
 def calcular_permanencia(dados, filtros, grupo='CLIENTE'):
     """Calcula tempo de permanência por cliente/operação"""
-    df = dados['base'].copy()  # Create a copy to avoid SettingWithCopyWarning
-    
-    # Criar coluna TURNO baseado no horário de retirada
-    def determinar_turno(hora):
-        if 7 <= hora < 15:
-            return 'TURNO A'
-        elif 15 <= hora < 23:
-            return 'TURNO B'
-        else:
-            return 'TURNO C'
-    
-    # Adiciona coluna TURNO
-    df['TURNO'] = df['retirada'].dt.hour.map(determinar_turno)
+    df = dados['base']
     
     # Aplicar filtros de data para período 2 (mais recente)
     mask = (
@@ -58,17 +46,9 @@ def calcular_permanencia(dados, filtros, grupo='CLIENTE'):
     )
     df_filtrado = df[mask]
     
-    # Aplicar filtros de cliente
-    if filtros['cliente'] != ['Todos']:
+    # Aplicar filtros adicionais
+    if filtros['cliente'] != ['Todos'] and grupo == 'OPERAÇÃO':
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
-    
-    # Aplicar filtros de operação
-    if filtros['operacao'] != ['Todas']:
-        df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
-    
-    # Aplicar filtros de turno
-    if filtros['turno'] != ['Todos']:
-        df_filtrado = df_filtrado[df_filtrado['TURNO'].isin(filtros['turno'])]
     
     # Calcula médias de tempo
     tempos = df_filtrado.groupby(grupo).agg({
@@ -89,8 +69,8 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
     """Cria gráfico de barras empilhadas com tempo de espera e atendimento"""
     cores_tema = obter_cores_tema()
     
-    # Ordena por tempo total de permanência (invertido - menores no topo)
-    df = dados_tempo.sort_values('tempo_permanencia', ascending=False)
+    # Ordena por tempo total de permanência
+    df = dados_tempo.sort_values('tempo_permanencia', ascending=True)
     
     fig = go.Figure()
     
@@ -104,7 +84,7 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
             text=[f"{formatar_tempo(x)} min" for x in df['tpesper']],
             textposition='inside',
             marker_color=cores_tema['secundaria'],
-            textfont={'color': '#000000', 'size': 14},  # Increased font size
+            textfont={'color': '#000000'},
             opacity=0.85
         )
     )
@@ -119,55 +99,34 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
             text=[f"{formatar_tempo(x)} min" for x in df['tpatend']],
             textposition='inside',
             marker_color=cores_tema['primaria'],
-            textfont={'color': '#ffffff', 'size': 14},  # Increased font size
+            textfont={'color': '#ffffff'},
             opacity=0.85
         )
     )
     
-    # Adiciona linha de meta para cobrir toda a área do gráfico
-    fig.add_shape(
-        type="line",
-        x0=meta,
-        x1=meta,
-        y0=-0.5,  # Estende abaixo da primeira barra
-        y1=len(df)-0.5,  # Estende acima da última barra
-        line=dict(
-            color=cores_tema['erro'],
-            dash="dash",
-            width=2
-        ),
-        name=f'Meta: {formatar_tempo(meta)} min'
-    )
-    
-    # Adiciona entrada na legenda para a meta
+    # Adiciona linha de meta (agora sem anotação)
     fig.add_trace(
         go.Scatter(
             name=f'Meta: {formatar_tempo(meta)} min',
-            x=[None],
-            y=[None],
+            x=[meta, meta],
+            y=[df[grupo].iloc[0], df[grupo].iloc[-1]],
             mode='lines',
             line=dict(
                 color=cores_tema['erro'],
-                dash="dash",
+                dash='dash',
                 width=2
             ),
-            showlegend=True
+            hoverinfo='name'
         )
     )
     
-    # Adiciona anotações com o tempo total e percentual acima da meta
+    # Adiciona anotações com o tempo total
     for i, row in df.iterrows():
-        tempo_total = row['tempo_permanencia']
-        perc_acima = ((tempo_total - meta) / meta * 100) if tempo_total > meta else 0
-        
-        cor = cores_tema['erro'] if tempo_total > meta else cores_tema['sucesso']
-        texto = (f"{formatar_tempo(tempo_total)} min" if perc_acima <= 0 
-                else f"{formatar_tempo(tempo_total)} min (+{perc_acima:.1f}%)")
-        
+        cor = cores_tema['erro'] if row['tempo_permanencia'] > meta else cores_tema['sucesso']
         fig.add_annotation(
-            x=tempo_total,
+            x=row['tempo_permanencia'],
             y=row[grupo],
-            text=texto,
+            text=f"{formatar_tempo(row['tempo_permanencia'])} min",
             showarrow=False,
             xshift=10,
             font=dict(color=cor, size=14),

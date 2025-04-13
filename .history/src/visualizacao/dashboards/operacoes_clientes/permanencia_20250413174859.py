@@ -89,8 +89,8 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
     """Cria gráfico de barras empilhadas com tempo de espera e atendimento"""
     cores_tema = obter_cores_tema()
     
-    # Ordena por tempo total de permanência (invertido - menores no topo)
-    df = dados_tempo.sort_values('tempo_permanencia', ascending=False)
+    # Ordena por tempo total de permanência
+    df = dados_tempo.sort_values('tempo_permanencia', ascending=True)
     
     fig = go.Figure()
     
@@ -104,7 +104,7 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
             text=[f"{formatar_tempo(x)} min" for x in df['tpesper']],
             textposition='inside',
             marker_color=cores_tema['secundaria'],
-            textfont={'color': '#000000', 'size': 14},  # Increased font size
+            textfont={'color': '#000000'},
             opacity=0.85
         )
     )
@@ -119,7 +119,7 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
             text=[f"{formatar_tempo(x)} min" for x in df['tpatend']],
             textposition='inside',
             marker_color=cores_tema['primaria'],
-            textfont={'color': '#ffffff', 'size': 14},  # Increased font size
+            textfont={'color': '#ffffff'},
             opacity=0.85
         )
     )

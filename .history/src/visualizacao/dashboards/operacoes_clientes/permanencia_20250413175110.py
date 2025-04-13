@@ -89,8 +89,8 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
     """Cria gráfico de barras empilhadas com tempo de espera e atendimento"""
     cores_tema = obter_cores_tema()
     
-    # Ordena por tempo total de permanência (invertido - menores no topo)
-    df = dados_tempo.sort_values('tempo_permanencia', ascending=False)
+    # Ordena por tempo total de permanência
+    df = dados_tempo.sort_values('tempo_permanencia', ascending=True)
     
     fig = go.Figure()
     
