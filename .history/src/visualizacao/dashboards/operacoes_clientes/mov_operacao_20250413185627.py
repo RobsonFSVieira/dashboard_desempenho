@@ -110,11 +110,12 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         max_valor = max(df_comp['quantidade_p1'].max(), df_comp['quantidade_p2'].max())
         
         def calcular_tamanho_fonte(valor, tipo='barra'):
-            # Define tamanhos fixos para melhor visibilidade
             if tipo == 'barra':
-                return 16  # Aumentado para 16
+                min_size, max_size = 12, 20
+                tamanho = max_size * (valor / max_valor)
+                return max(min_size, min(max_size, tamanho))
             else:  # tipo == 'porcentagem'
-                return 14
+                return 14  # Tamanho fixo para as porcentagens
 
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
@@ -127,8 +128,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             marker_color=cores_tema['primaria'],
             textfont={
                 'size': df_comp['quantidade_p1'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
-                'color': '#ffffff',
-                'family': 'Arial Black'  # Adiciona fonte em negrito
+                'color': '#ffffff'
             },
             opacity=0.85
         ))
@@ -144,8 +144,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             marker_color=cores_tema['secundaria'],
             textfont={
                 'size': df_comp['quantidade_p2'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
-                'color': '#000000',
-                'family': 'Arial Black'  # Adiciona fonte em negrito
+                'color': '#000000'
             },
             opacity=0.85
         ))
