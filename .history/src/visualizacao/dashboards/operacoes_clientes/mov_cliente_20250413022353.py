@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-from visualizacao.tema import Tema
 
 def formatar_data(data):
     """Formata a data para o padrão dd/mm/aaaa"""
@@ -49,9 +48,6 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
     legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
     
-    # Obtém cores do tema para os períodos
-    cores = Tema.obter_cores_grafico(num_cores=2, modo='categorico')
-    
     # Cria o gráfico
     fig = go.Figure()
     
@@ -62,7 +58,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             y=df_comp['cliente'],
             x=df_comp['quantidade_p1'],
             orientation='h',
-            marker_color=cores[0],
+            marker_color='rgba(75, 192, 192, 0.8)',
         )
     )
     
@@ -72,24 +68,19 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             y=df_comp['cliente'],
             x=df_comp['quantidade_p2'],
             orientation='h',
-            marker_color=cores[1],
+            marker_color='rgba(153, 102, 255, 0.8)',
         )
     )
     
     # Adiciona anotações com a variação percentual
     for i, row in df_comp.iterrows():
-        # Determina a cor da variação usando o tema
-        tema_atual = Tema.detectar_tema_atual()
-        cor_positiva = Tema.CORES[tema_atual]['sucesso']
-        cor_negativa = Tema.CORES[tema_atual]['destaque']
-        
         fig.add_annotation(
             x=max(row['quantidade_p1'], row['quantidade_p2']) + 1,
             y=row['cliente'],
             text=f"{row['variacao']:+.1f}%",
             showarrow=False,
             font=dict(
-                color=cor_positiva if row['variacao'] >= 0 else cor_negativa
+                color='green' if row['variacao'] >= 0 else 'red'
             )
         )
     
@@ -109,9 +100,6 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             x=1
         )
     )
-    
-    # Aplica as configurações padrão do tema
-    fig = Tema.configurar_grafico_padrao(fig)
     
     return fig
 

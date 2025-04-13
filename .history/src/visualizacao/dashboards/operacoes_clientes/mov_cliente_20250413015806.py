@@ -2,14 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
-from visualizacao.tema import Tema
-
-def formatar_data(data):
-    """Formata a data para o padrão dd/mm/aaaa"""
-    if isinstance(data, datetime):
-        return data.strftime('%d/%m/%Y')
-    return data
 
 def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     """Calcula a movimentação de cada cliente no período especificado"""
@@ -28,7 +20,7 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     
     return movimentacao
 
-def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
+def criar_grafico_comparativo(dados_p1, dados_p2):
     """Cria gráfico comparativo entre os dois períodos"""
     # Merge dos dados dos dois períodos
     df_comp = pd.merge(
@@ -45,73 +37,52 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     # Ordena por quantidade do período 2
     df_comp = df_comp.sort_values('quantidade_p2', ascending=True)
     
-    # Prepara legendas formatadas com datas
-    legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
-    legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
-    
-    # Obtém cores do tema para os períodos
-    cores = Tema.obter_cores_grafico(num_cores=2, modo='categorico')
-    
     # Cria o gráfico
     fig = go.Figure()
     
-    # Adiciona barras horizontais empilhadas
+    # Adiciona barras para cada período
     fig.add_trace(
         go.Bar(
-            name=legenda_p1,
+            name='Período 1',
             y=df_comp['cliente'],
             x=df_comp['quantidade_p1'],
             orientation='h',
-            marker_color=cores[0],
+            marker_color='lightgray'
         )
     )
     
     fig.add_trace(
         go.Bar(
-            name=legenda_p2,
+            name='Período 2',
             y=df_comp['cliente'],
             x=df_comp['quantidade_p2'],
             orientation='h',
-            marker_color=cores[1],
+            marker_color='darkblue'
         )
     )
     
     # Adiciona anotações com a variação percentual
     for i, row in df_comp.iterrows():
-        # Determina a cor da variação usando o tema
-        tema_atual = Tema.detectar_tema_atual()
-        cor_positiva = Tema.CORES[tema_atual]['sucesso']
-        cor_negativa = Tema.CORES[tema_atual]['destaque']
-        
         fig.add_annotation(
-            x=max(row['quantidade_p1'], row['quantidade_p2']) + 1,
+            x=max(row['quantidade_p1'], row['quantidade_p2']),
             y=row['cliente'],
             text=f"{row['variacao']:+.1f}%",
             showarrow=False,
+            xshift=10,
             font=dict(
-                color=cor_positiva if row['variacao'] >= 0 else cor_negativa
+                color='green' if row['variacao'] >= 0 else 'red'
             )
         )
     
-    # Configura o layout para barras empilhadas horizontais
+    # Atualiza o layout
     fig.update_layout(
         title='Comparativo de Movimentação por Cliente',
-        barmode='stack',  # Empilha as barras
+        barmode='group',
         height=400 + (len(df_comp) * 20),
         showlegend=True,
         xaxis_title="Quantidade de Atendimentos",
-        yaxis_title="Cliente",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        yaxis_title="Cliente"
     )
-    
-    # Aplica as configurações padrão do tema
-    fig = Tema.configurar_grafico_padrao(fig)
     
     return fig
 
@@ -125,7 +96,7 @@ def mostrar_aba(dados, filtros):
         mov_p2 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo2')
         
         # Cria e exibe o gráfico comparativo
-        fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
+        fig = criar_grafico_comparativo(mov_p1, mov_p2)
         st.plotly_chart(fig, use_container_width=True)
         
         # Insights

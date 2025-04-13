@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-from visualizacao.tema import Tema
 
 def formatar_data(data):
     """Formata a data para o padrão dd/mm/aaaa"""
@@ -12,7 +11,7 @@ def formatar_data(data):
     return data
 
 def calcular_movimentacao_por_periodo(dados, filtros, periodo):
-    """Calcula a movimentação de cada cliente no período especificado"""
+    """Calcula a movimentação de cada operação no período especificado"""
     df = dados['base']
     
     # Aplicar filtros de data
@@ -22,9 +21,13 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     )
     df_filtrado = df[mask]
     
-    # Agrupar por cliente
-    movimentacao = df_filtrado.groupby('CLIENTE')['id'].count().reset_index()
-    movimentacao.columns = ['cliente', 'quantidade']
+    # Aplicar filtros adicionais se especificados
+    if filtros['cliente'] != ['Todos']:
+        df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
+    
+    # Agrupar por operação
+    movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()
+    movimentacao.columns = ['operacao', 'quantidade']
     
     return movimentacao
 
@@ -34,7 +37,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     df_comp = pd.merge(
         dados_p1, 
         dados_p2, 
-        on='cliente', 
+        on='operacao', 
         suffixes=('_p1', '_p2')
     )
     
@@ -49,75 +52,59 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
     legenda_p1 = f"Período 1 ({formatar_data(filtros['periodo1']['inicio'])} a {formatar_data(filtros['periodo1']['fim'])})"
     legenda_p2 = f"Período 2 ({formatar_data(filtros['periodo2']['inicio'])} a {formatar_data(filtros['periodo2']['fim'])})"
     
-    # Obtém cores do tema para os períodos
-    cores = Tema.obter_cores_grafico(num_cores=2, modo='categorico')
-    
     # Cria o gráfico
     fig = go.Figure()
     
-    # Adiciona barras horizontais empilhadas
+    # Adiciona barras empilhadas para cada período
     fig.add_trace(
         go.Bar(
             name=legenda_p1,
-            y=df_comp['cliente'],
+            y=df_comp['operacao'],
             x=df_comp['quantidade_p1'],
             orientation='h',
-            marker_color=cores[0],
+            marker_color='lightgray',
+            base=0
         )
     )
     
     fig.add_trace(
         go.Bar(
             name=legenda_p2,
-            y=df_comp['cliente'],
+            y=df_comp['operacao'],
             x=df_comp['quantidade_p2'],
             orientation='h',
-            marker_color=cores[1],
+            marker_color='darkblue',
+            base=0
         )
     )
     
     # Adiciona anotações com a variação percentual
     for i, row in df_comp.iterrows():
-        # Determina a cor da variação usando o tema
-        tema_atual = Tema.detectar_tema_atual()
-        cor_positiva = Tema.CORES[tema_atual]['sucesso']
-        cor_negativa = Tema.CORES[tema_atual]['destaque']
-        
         fig.add_annotation(
             x=max(row['quantidade_p1'], row['quantidade_p2']) + 1,
-            y=row['cliente'],
+            y=row['operacao'],
             text=f"{row['variacao']:+.1f}%",
             showarrow=False,
             font=dict(
-                color=cor_positiva if row['variacao'] >= 0 else cor_negativa
+                color='green' if row['variacao'] >= 0 else 'red'
             )
         )
     
-    # Configura o layout para barras empilhadas horizontais
+    # Atualiza o layout para barras empilhadas horizontais
     fig.update_layout(
-        title='Comparativo de Movimentação por Cliente',
-        barmode='stack',  # Empilha as barras
+        title='Comparativo de Movimentação por Operação',
+        barmode='stack',
         height=400 + (len(df_comp) * 20),
         showlegend=True,
         xaxis_title="Quantidade de Atendimentos",
-        yaxis_title="Cliente",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        yaxis_title="Operação"
     )
-    
-    # Aplica as configurações padrão do tema
-    fig = Tema.configurar_grafico_padrao(fig)
     
     return fig
 
 def mostrar_aba(dados, filtros):
-    """Mostra a aba de Movimentação por Cliente"""
-    st.header("Movimentação por Cliente")
+    """Mostra a aba de Movimentação por Operação"""
+    st.header("Movimentação por Operação")
     
     try:
         # Calcula movimentação para os dois períodos
@@ -135,7 +122,7 @@ def mostrar_aba(dados, filtros):
             df_comp = pd.merge(
                 mov_p1, 
                 mov_p2, 
-                on='cliente', 
+                on='operacao', 
                 suffixes=('_p1', '_p2')
             )
             df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) 
@@ -145,18 +132,24 @@ def mostrar_aba(dados, filtros):
             aumentos = df_comp[df_comp['variacao'] > 0].sort_values('variacao', ascending=False)
             reducoes = df_comp[df_comp['variacao'] < 0].sort_values('variacao')
             
+            # Total de atendimentos
+            total_p1 = mov_p1['quantidade'].sum()
+            total_p2 = mov_p2['quantidade'].sum()
+            var_total = ((total_p2 - total_p1) / total_p1 * 100)
+            
             st.write("#### Principais Observações:")
+            st.write(f"**Variação Total**: {var_total:+.1f}%")
             
             if not aumentos.empty:
-                st.write("**Maiores Aumentos:**")
+                st.write("**Operações com Maior Crescimento:**")
                 for _, row in aumentos.head(3).iterrows():
-                    st.write(f"- {row['cliente']}: +{row['variacao']:.1f}%")
+                    st.write(f"- {row['operacao']}: +{row['variacao']:.1f}%")
             
             if not reducoes.empty:
-                st.write("**Maiores Reduções:**")
+                st.write("**Operações com Maior Redução:**")
                 for _, row in reducoes.head(3).iterrows():
-                    st.write(f"- {row['cliente']}: {row['variacao']:.1f}%")
+                    st.write(f"- {row['operacao']}: {row['variacao']:.1f}%")
     
     except Exception as e:
-        st.error("Erro ao gerar a aba de Movimentação por Cliente")
+        st.error("Erro ao gerar a aba de Movimentação por Operação")
         st.exception(e)
