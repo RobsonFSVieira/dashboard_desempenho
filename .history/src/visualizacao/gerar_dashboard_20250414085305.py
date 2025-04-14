@@ -14,6 +14,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
     data_max = df['retirada'].dt.date.max()
     
     if filtros is None or filtros['periodo2']['inicio'] > data_max or filtros['periodo2']['fim'] < data_min:
+        st.warning(f"⚠️ Ajustando filtros de data para o período disponível: {data_min.strftime('%d/%m/%Y')} a {data_max.strftime('%d/%m/%Y')}")
         if filtros is None:
             filtros = {}
         filtros['periodo2'] = {'inicio': data_min, 'fim': data_max}

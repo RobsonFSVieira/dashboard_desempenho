@@ -5,18 +5,20 @@ from visualizacao.dashboards.desenvolvimento_pessoas import tempo_atend as dev_t
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
     if dados is None:
-        st.info("📊 Carregue os dados para visualizar o dashboard.")
+        st.error("Erro: Dados não carregados corretamente.")
         return
     
-    # Verifica e ajusta as datas dos filtros com base nos dados disponíveis
-    df = dados['base']
-    data_min = df['retirada'].dt.date.min()
-    data_max = df['retirada'].dt.date.max()
+    # Verificar colunas necessárias
+    colunas_requeridas = ['id', 'retirada', 'inicio', 'fim', 'usuário', 'tpatend', 'tpesper']
+    colunas_faltantes = [col for col in colunas_requeridas if col not in dados['base'].columns]
     
-    if filtros is None or filtros['periodo2']['inicio'] > data_max or filtros['periodo2']['fim'] < data_min:
-        if filtros is None:
-            filtros = {}
-        filtros['periodo2'] = {'inicio': data_min, 'fim': data_max}
+    if colunas_faltantes:
+        st.error(f"Erro: Colunas necessárias não encontradas: {', '.join(colunas_faltantes)}")
+        return
+    
+    if filtros is None:
+        st.info("📊 Selecione os filtros para visualizar o dashboard.")
+        return
     
     try:
         if tipo_dashboard == "Performance Cliente/Operação":

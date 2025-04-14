@@ -1,22 +1,12 @@
 import streamlit as st
 from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii
-from visualizacao.dashboards.desenvolvimento_pessoas import tempo_atend as dev_tempo_atend
+from visualizacao.dashboards.desenvolvimento_pessoas import tempo_atend as dev_tempo_atend, geral_pessoas
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
-    if dados is None:
-        st.info("📊 Carregue os dados para visualizar o dashboard.")
+    if dados is None or filtros is None:
+        st.info("📊 Carregue os dados e selecione os filtros para visualizar o dashboard.")
         return
-    
-    # Verifica e ajusta as datas dos filtros com base nos dados disponíveis
-    df = dados['base']
-    data_min = df['retirada'].dt.date.min()
-    data_max = df['retirada'].dt.date.max()
-    
-    if filtros is None or filtros['periodo2']['inicio'] > data_max or filtros['periodo2']['fim'] < data_min:
-        if filtros is None:
-            filtros = {}
-        filtros['periodo2'] = {'inicio': data_min, 'fim': data_max}
     
     try:
         if tipo_dashboard == "Performance Cliente/Operação":
@@ -92,14 +82,29 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 
         elif tipo_dashboard == "Desenvolvimento de Pessoas":
             tabs = st.tabs([
-                "Tempo de Atendimento"
+                "Visão Geral",
+                "Tempo de Atendimento",
+                "Ranking de Desempenho",
+                "Evolução Individual"
             ])
             
             with tabs[0]:
                 try:
+                    geral_pessoas.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Visão Geral: {str(e)}")
+            
+            with tabs[1]:
+                try:
                     dev_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
-                    st.error(f"Erro na aba Desenvolvimento de Pessoas: {str(e)}")
+                    st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
+            
+            with tabs[2]:
+                st.info("🚧 Em desenvolvimento - Ranking de Desempenho")
+            
+            with tabs[3]:
+                st.info("🚧 Em desenvolvimento - Evolução Individual")
                 
     except Exception as e:
         st.error(f"Erro ao gerar o dashboard: {str(e)}")
