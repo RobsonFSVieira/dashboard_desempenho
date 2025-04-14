@@ -73,11 +73,10 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             x=metricas_hora['hora'],
             y=metricas_hora['retiradas'],
             marker_color=cores_tema['secundaria'],
+            textfont={'family': 'Arial Black', 'size': 14},
             text=metricas_hora['retiradas'].astype(int),
             textposition='outside',
-            textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='<b>%{text}</b>',  # Texto em negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textangle=90,  # Rotação vertical do texto
         )
     )
     
@@ -88,11 +87,10 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             x=metricas_hora['hora'],
             y=metricas_hora['atendidas'],
             marker_color=cores_tema['primaria'],
+            textfont={'family': 'Arial Black', 'size': 14},
             text=metricas_hora['atendidas'].astype(int),
             textposition='outside',
-            textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='<b>%{text}</b>',  # Texto em negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textangle=90,  # Rotação vertical do texto
         )
     )
     
@@ -107,17 +105,12 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             marker=dict(size=6, symbol='circle'),
             text=metricas_hora['pendentes'].astype(int),
             textposition='top center',
-            textfont=dict(
-                size=16,  # Aumentado para 16
-                family='Arial Black',
-                color='#8b0000'  # Vermelho mais escuro
-            ),
-            texttemplate='<b>%{text}</b>',  # Texto em negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textfont=dict(color=cores_tema['alerta'], size=14, family='Arial Black'),
+            textangle=90,  # Rotação vertical do texto
         )
     )
-
-    # Atualiza layout para acomodar os rótulos maiores
+    
+    # Atualiza layout
     titulo = f"Análise Hora a Hora {'- ' + cliente if cliente else 'Geral'}"
     fig.update_layout(
         title={
@@ -149,7 +142,7 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             'font': {'size': 14, 'color': cores_tema['texto']},  # Aumentado tamanho da fonte
             'bgcolor': 'rgba(0,0,0,0)'
         },
-        margin=dict(l=40, r=40, t=100, b=100),  # Aumentada margem inferior
+        margin=dict(l=40, r=40, t=100, b=80),  # Aumentado todas as margens
         xaxis=dict(
             tickmode='array',
             ticktext=[f'{i:02d}h' for i in range(24)],  # Formata como 00h, 01h, etc
@@ -160,14 +153,6 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             linewidth=1,
             linecolor=cores_tema['grid'],
             range=[-0.5, 23.5]  # Ajusta o range para mostrar todas as horas
-        ),
-        yaxis=dict(
-            gridcolor=cores_tema['grid'],
-            showline=True,
-            linewidth=1,
-            linecolor=cores_tema['grid'],
-            tickfont={'color': cores_tema['texto'], 'size': 12},
-            range=[0, metricas_hora[['retiradas', 'atendidas', 'pendentes']].max().max() * 1.3]  # Aumentado espaço
         )
     )
     
