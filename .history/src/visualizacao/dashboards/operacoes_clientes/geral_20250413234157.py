@@ -5,37 +5,10 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 def formatar_tempo(minutos):
-    """Formata o tempo de minutos para o formato hh:mm min ou mm:ss min"""
-    if minutos >= 60:
-        horas = int(minutos // 60)
-        minutos_restantes = int(minutos % 60)
-        return f"{horas:02d}:{minutos_restantes:02d} h"
-    else:
-        minutos_parte = int(minutos)
-        segundos_parte = int((minutos - minutos_parte) * 60)
-        return f"{minutos_parte:02d}:{segundos_parte:02d} min"
-
-def formatar_card(titulo, conteudo, estilo="default"):
-    """Formata um card com título e conteúdo"""
-    cores = {
-        "default": "#ddd",
-        "warning": "#ff4b4b",
-    }
-    bg_cores = {
-        "default": "rgba(255,255,255,0)",
-        "warning": "rgba(255,75,75,0.05)",
-    }
-    
-    return f"""
-    <div style='border:1px solid {cores[estilo]}; border-radius:5px; padding:15px; margin-bottom:20px; background-color:{bg_cores[estilo]};'>
-        <p style='font-size:1.1em; font-weight:bold; margin:0 0 10px 0;'>{titulo}</p>
-        {conteudo}
-    </div>
-    """
-
-def formatar_lista(items, separador="\n"):
-    """Formata uma lista de items com separador personalizado"""
-    return separador.join(items)
+    """Formata o tempo de minutos para o formato mm:ss"""
+    minutos_parte = int(minutos)
+    segundos_parte = int((minutos - minutos_parte) * 60)
+    return f"{minutos_parte:02d}:{segundos_parte:02d} min"
 
 def calcular_metricas_gerais(dados, filtros):
     """Calcula métricas gerais para o período selecionado"""
@@ -137,22 +110,6 @@ def gerar_insights_gerais(dados, filtros, metricas):
     """Gera insights sobre as operações gerais"""
     df = dados['base']
     
-    # Aplicar filtros de data
-    mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
-    df = df[mask]
-    
     # Análise por períodos do dia
     df['hora'] = df['retirada'].dt.hour
     manha = df[df['hora'].between(6, 11)]['id'].count()
@@ -160,117 +117,114 @@ def gerar_insights_gerais(dados, filtros, metricas):
     noite = df[df['hora'].between(18, 23)]['id'].count()
     total = manha + tarde + noite
     
-    # Evitar divisão por zero
-    total = max(total, 1)  # Se total for 0, usa 1 para evitar divisão por zero
-    
     # Análise de eficiência
-    tempo_meta = filtros.get('meta_permanencia', 30)
+    tempo_meta = filtros.get('meta_permanencia', 30)  # 30 minutos como padrão
     atendimentos_eficientes = df[df['tempo_permanencia'] <= tempo_meta * 60]['id'].count()
     taxa_eficiencia = (atendimentos_eficientes / len(df) * 100) if len(df) > 0 else 0
     
     # Análise de pontos fora da meta
-    tempo_meta_segundos = tempo_meta * 60
+    tempo_meta_segundos = tempo_meta * 60  # convertendo para segundos
     df['status_meta'] = df['tempo_permanencia'].apply(lambda x: 'Dentro' if x <= tempo_meta_segundos else 'Fora')
     pontos_fora = df[df['status_meta'] == 'Fora']
-
-    # Análise detalhada dos pontos fora da meta
-    dias_criticos = df[df['status_meta'] == 'Fora'].groupby(df['retirada'].dt.date).size().sort_values(ascending=False)
-    clientes_criticos = df[df['status_meta'] == 'Fora'].groupby('CLIENTE').size().sort_values(ascending=False)
-    operacoes_criticas = df[df['status_meta'] == 'Fora'].groupby('OPERAÇÃO').size().sort_values(ascending=False)
-
-    # Análise de dias da semana
-    df['dia_semana'] = df['retirada'].dt.day_name()
-    dias_semana_fora = df[df['status_meta'] == 'Fora'].groupby('dia_semana').size()
     
-    # Análise de horários críticos
-    df['hora_completa'] = df['retirada'].dt.hour
-    horas_criticas = df[df['status_meta'] == 'Fora'].groupby('hora_completa').size().sort_values(ascending=False)
-
-    # Análise de picos
-    pico_espera = df.nlargest(3, 'tpesper')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tpesper']]
-    pico_permanencia = df.nlargest(3, 'tempo_permanencia')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tempo_permanencia']]
-
-    col1, col2, col3 = st.columns(3)
+    # Análise de chegadas em comboio (veículos chegando com menos de 5 minutos de diferença)
+    df_sorted = df.sort_values('retirada')
+    df_sorted['tempo_entre_chegadas'] = df_sorted['retirada'].diff().dt.total_seconds()
+    chegadas_comboio = df_sorted[df_sorted['tempo_entre_chegadas'] <= 300]  # 5 minutos = 300 segundos
+    
+    # Análise por cliente e operação para chegadas em comboio
+    comboio_por_cliente = chegadas_comboio.groupby('CLIENTE').size().sort_values(ascending=False).head(5)
+    comboio_por_operacao = chegadas_comboio.groupby('OPERAÇÃO').size().sort_values(ascending=False).head(5)
+    
+    col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📊 Visão Geral do Período")
-        st.markdown(formatar_card(
-            "Resumo do Período",
-            f"""
-            📌 Atendimentos totais: {len(df):,}
-            ⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}
-            📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
-            """
-        ), unsafe_allow_html=True)
+        st.subheader("📊 Visão Geral")
+        st.markdown(f"""
+        <div style='border:1px solid #ddd; border-radius:5px; padding:15px; margin-bottom:20px;'>
+            📌 Total de atendimentos: {metricas['total_atendimentos']:,} atendimentos
+            <br>⏱️ Tempo médio total: {formatar_tempo(metricas['media_permanencia'])}
+            <br>📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
+        </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown(formatar_card(
-            "⏰ Indicadores de Tempo",
-            f"""
-            ⏳ Tempo médio de espera: {formatar_tempo(df['tpesper'].mean() / 60)}
-            ⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}
-            🎯 Meta de permanência: {tempo_meta}:00 min
-            """
-        ), unsafe_allow_html=True)
+        st.subheader("📈 Indicadores de Tempo")
+        st.markdown(f"""
+        <div style='border:1px solid #ddd; border-radius:5px; padding:15px; margin-bottom:20px;'>
+            ⏳ Tempo médio de espera: {formatar_tempo(metricas['media_tempo_espera'])}
+            <br>⚡ Tempo médio de atendimento: {formatar_tempo(metricas['media_tempo_atendimento'])}
+            <br>🎯 Meta de permanência: {tempo_meta}:00 min
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.subheader("⏱️ Distribuição Horária")
+        st.markdown(f"""
+        <div style='border:1px solid #ddd; border-radius:5px; padding:15px; margin-bottom:20px;'>
+            🌅 Manhã (6h-11h): {manha:,} atendimentos ({manha/total*100:.1f}%)
+            <br>☀️ Tarde (12h-17h): {tarde:,} atendimentos ({tarde/total*100:.1f}%)
+            <br>🌙 Noite (18h-23h): {noite:,} atendimentos ({noite/total*100:.1f}%)
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.subheader("💡 Recomendações")
+        
+        recommendations = []
+        if metricas['media_permanencia'] > tempo_meta:
+            recommendations.extend([
+                "- ⚠️ Atenção: Tempo médio acima da meta",
+                "- 📊 Avaliar gargalos no processo",
+                "- 👥 Considerar reforço na equipe"
+            ])
+        if taxa_eficiencia < 80:
+            recommendations.extend([
+                "- ⚡ Otimizar fluxo de atendimento",
+                "- 📈 Implementar melhorias no processo",
+                "- 👥 Revisar distribuição da equipe"
+            ])
+            
+        st.markdown(f"""
+        <div style='border:1px solid #2196f3; border-radius:5px; padding:15px; background-color:rgba(33,150,243,0.05);'>
+            {('<br>'.join(recommendations) if recommendations else 'Nenhuma recomendação necessária no momento.')}
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        st.subheader("🎯 Análise de Metas")
-        st.markdown(formatar_card(
-            "Desempenho",
-            f"""
-            ✅ Dentro da meta: {len(df[df['status_meta'] == 'Dentro']):,} ({(len(df[df['status_meta'] == 'Dentro'])/len(df)*100):.1f}%)
-            ❌ Fora da meta: {len(pontos_fora):,} ({(len(pontos_fora)/len(df)*100):.1f}%)
-            """
-        ), unsafe_allow_html=True)
+        st.subheader("⚠️ Pontos de Atenção")
+        
+        # Análise de Meta
+        st.markdown(f"""
+        <div style='border:1px solid #ff4b4b; border-radius:5px; padding:15px; margin-bottom:20px; background-color:rgba(255,75,75,0.05);'>
+            <h4 style='color:#ff4b4b; margin:0 0 10px 0;'>🎯 Análise de Meta</h4>
+            ❌ Atendimentos fora da meta: {len(pontos_fora):,} atendimentos ({len(pontos_fora)/len(df)*100:.1f}%)
+            <br>⏰ Tempo médio dos pontos fora: {formatar_tempo(pontos_fora['tempo_permanencia'].mean()/60)}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Chegadas em Comboio - Tudo em uma única div
+        comboio_items = []
+        for cliente, qtd in comboio_por_cliente.items():
+            comboio_items.append(f"<li style='margin-bottom:8px;'>• 👥 {cliente} ({qtd:,} atendimentos)</li>")
+        
+        operacoes_items = []
+        for op, qtd in comboio_por_operacao.items():
+            operacoes_items.append(f"<li style='margin-bottom:8px;'>• 🔸 {op} ({qtd:,} atendimentos)</li>")
+        
+        st.markdown(f"""
+        <div style='border:1px solid #ffa726; border-radius:5px; padding:15px; margin-bottom:20px; background-color:rgba(255,167,38,0.05);'>
+            <h4 style='color:#ffa726; margin:0 0 10px 0;'>🚛 Chegadas em Comboio</h4>
+            📊 Total de chegadas em comboio: {len(chegadas_comboio):,} atendimentos ({len(chegadas_comboio)/len(df)*100:.1f}%)
+            
+            <h5 style='color:#ffa726; margin:10px 0;'>🏢 Principais clientes afetados:</h5>
+            <ul style='list-style:none; padding-left:15px; margin:0;'>
+                {''.join(comboio_items)}
+            </ul>
 
-        st.markdown(formatar_card(
-            "Pontos Críticos",
-            f"""
-            📅 Top 3 Dias:
-            • {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
-            • {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
-            • {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
-            """
-        ), unsafe_allow_html=True)
-
-        st.markdown(formatar_card(
-            "Principais Impactos",
-            f"""
-            👥 Top 3 Clientes:
-            • {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
-            • {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
-            • {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
-            """
-        ), unsafe_allow_html=True)
-
-    with col3:
-        st.subheader("⚠️ Análise de Picos")
-        st.markdown(formatar_card(
-            "Maiores Tempos de Espera",
-            formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tpesper']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
-                for _, row in pico_espera.iterrows()
-            ], "\n\n"),
-            estilo="warning"
-        ), unsafe_allow_html=True)
-
-        st.markdown(formatar_card(
-            "Maiores Tempos de Permanência",
-            formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tempo_permanencia']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
-                for _, row in pico_permanencia.iterrows()
-            ], "\n\n"),
-            estilo="warning"
-        ), unsafe_allow_html=True)
+            <h5 style='color:#ffa726; margin:10px 0;'>🔄 Operações mais impactadas:</h5>
+            <ul style='list-style:none; padding-left:15px; margin:0;'>
+                {''.join(operacoes_items)}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba Geral do dashboard"""

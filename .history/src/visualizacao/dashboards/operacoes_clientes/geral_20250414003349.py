@@ -5,15 +5,10 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 def formatar_tempo(minutos):
-    """Formata o tempo de minutos para o formato hh:mm min ou mm:ss min"""
-    if minutos >= 60:
-        horas = int(minutos // 60)
-        minutos_restantes = int(minutos % 60)
-        return f"{horas:02d}:{minutos_restantes:02d} h"
-    else:
-        minutos_parte = int(minutos)
-        segundos_parte = int((minutos - minutos_parte) * 60)
-        return f"{minutos_parte:02d}:{segundos_parte:02d} min"
+    """Formata o tempo de minutos para o formato mm:ss"""
+    minutos_parte = int(minutos)
+    segundos_parte = int((minutos - minutos_parte) * 60)
+    return f"{minutos_parte:02d}:{segundos_parte:02d} min"
 
 def formatar_card(titulo, conteudo, estilo="default"):
     """Formata um card com título e conteúdo"""
@@ -198,8 +193,8 @@ def gerar_insights_gerais(dados, filtros, metricas):
             "Resumo do Período",
             f"""
             📌 Atendimentos totais: {len(df):,}
-            ⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}
-            📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
+            <br>⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}
+            <br>📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
             """
         ), unsafe_allow_html=True)
         
@@ -207,8 +202,8 @@ def gerar_insights_gerais(dados, filtros, metricas):
             "⏰ Indicadores de Tempo",
             f"""
             ⏳ Tempo médio de espera: {formatar_tempo(df['tpesper'].mean() / 60)}
-            ⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}
-            🎯 Meta de permanência: {tempo_meta}:00 min
+            <br>⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}
+            <br>🎯 Meta de permanência: {tempo_meta}:00 min
             """
         ), unsafe_allow_html=True)
 
@@ -218,7 +213,7 @@ def gerar_insights_gerais(dados, filtros, metricas):
             "Desempenho",
             f"""
             ✅ Dentro da meta: {len(df[df['status_meta'] == 'Dentro']):,} ({(len(df[df['status_meta'] == 'Dentro'])/len(df)*100):.1f}%)
-            ❌ Fora da meta: {len(pontos_fora):,} ({(len(pontos_fora)/len(df)*100):.1f}%)
+            <br>❌ Fora da meta: {len(pontos_fora):,} ({(len(pontos_fora)/len(df)*100):.1f}%)
             """
         ), unsafe_allow_html=True)
 
@@ -226,9 +221,9 @@ def gerar_insights_gerais(dados, filtros, metricas):
             "Pontos Críticos",
             f"""
             📅 Top 3 Dias:
-            • {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
-            • {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
-            • {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
+            <br>• {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
+            <br>• {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
+            <br>• {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
             """
         ), unsafe_allow_html=True)
 
@@ -236,9 +231,9 @@ def gerar_insights_gerais(dados, filtros, metricas):
             "Principais Impactos",
             f"""
             👥 Top 3 Clientes:
-            • {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
-            • {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
-            • {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
+            <br>• {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
+            <br>• {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
+            <br>• {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
             """
         ), unsafe_allow_html=True)
 
@@ -247,28 +242,24 @@ def gerar_insights_gerais(dados, filtros, metricas):
         st.markdown(formatar_card(
             "Maiores Tempos de Espera",
             formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tpesper']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
+                f"📍 {formatar_tempo(row['tpesper']/60)}"
+                f"<br>📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}"
+                f"<br>👥 {row['CLIENTE']}"
+                f"<br>🔧 {row['OPERAÇÃO']}"
                 for _, row in pico_espera.iterrows()
-            ], "\n\n"),
+            ], "<br><br>"),
             estilo="warning"
         ), unsafe_allow_html=True)
 
         st.markdown(formatar_card(
             "Maiores Tempos de Permanência",
             formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tempo_permanencia']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
+                f"📍 {formatar_tempo(row['tempo_permanencia']/60)}"
+                f"<br>📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}"
+                f"<br>👥 {row['CLIENTE']}"
+                f"<br>🔧 {row['OPERAÇÃO']}"
                 for _, row in pico_permanencia.iterrows()
-            ], "\n\n"),
+            ], "<br><br>"),
             estilo="warning"
         ), unsafe_allow_html=True)
 

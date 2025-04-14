@@ -5,15 +5,10 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 def formatar_tempo(minutos):
-    """Formata o tempo de minutos para o formato hh:mm min ou mm:ss min"""
-    if minutos >= 60:
-        horas = int(minutos // 60)
-        minutos_restantes = int(minutos % 60)
-        return f"{horas:02d}:{minutos_restantes:02d} h"
-    else:
-        minutos_parte = int(minutos)
-        segundos_parte = int((minutos - minutos_parte) * 60)
-        return f"{minutos_parte:02d}:{segundos_parte:02d} min"
+    """Formata o tempo de minutos para o formato mm:ss"""
+    minutos_parte = int(minutos)
+    segundos_parte = int((minutos - minutos_parte) * 60)
+    return f"{minutos_parte:02d}:{segundos_parte:02d} min"
 
 def formatar_card(titulo, conteudo, estilo="default"):
     """Formata um card com título e conteúdo"""

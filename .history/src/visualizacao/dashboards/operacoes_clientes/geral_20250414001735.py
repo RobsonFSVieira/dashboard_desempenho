@@ -5,15 +5,10 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 def formatar_tempo(minutos):
-    """Formata o tempo de minutos para o formato hh:mm min ou mm:ss min"""
-    if minutos >= 60:
-        horas = int(minutos // 60)
-        minutos_restantes = int(minutos % 60)
-        return f"{horas:02d}:{minutos_restantes:02d} h"
-    else:
-        minutos_parte = int(minutos)
-        segundos_parte = int((minutos - minutos_parte) * 60)
-        return f"{minutos_parte:02d}:{segundos_parte:02d} min"
+    """Formata o tempo de minutos para o formato mm:ss"""
+    minutos_parte = int(minutos)
+    segundos_parte = int((minutos - minutos_parte) * 60)
+    return f"{minutos_parte:02d}:{segundos_parte:02d} min"
 
 def formatar_card(titulo, conteudo, estilo="default"):
     """Formata um card com título e conteúdo"""
@@ -190,87 +185,42 @@ def gerar_insights_gerais(dados, filtros, metricas):
     pico_espera = df.nlargest(3, 'tpesper')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tpesper']]
     pico_permanencia = df.nlargest(3, 'tempo_permanencia')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tempo_permanencia']]
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📊 Visão Geral do Período")
+        st.subheader("📊 Visão Geral do Período Filtrado")
         st.markdown(formatar_card(
             "Resumo do Período",
-            f"""
-            📌 Atendimentos totais: {len(df):,}
-            ⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}
-            📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
-            """
+            formatar_lista([
+                f"📌 Atendimentos no período: {len(df):,} atendimentos",
+                f"⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}",
+                f"📈 Taxa de eficiência: {taxa_eficiencia:.1f}%"
+            ], "\n")
         ), unsafe_allow_html=True)
         
+        st.subheader("📈 Indicadores de Tempo no Período")
         st.markdown(formatar_card(
-            "⏰ Indicadores de Tempo",
-            f"""
-            ⏳ Tempo médio de espera: {formatar_tempo(df['tpesper'].mean() / 60)}
-            ⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}
-            🎯 Meta de permanência: {tempo_meta}:00 min
-            """
+            "Indicadores de Tempo",
+            formatar_lista([
+                f"⏳ Tempo médio de espera: {formatar_tempo(df['tpesper'].mean() / 60)}",
+                f"⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}",
+                f"🎯 Meta de permanência: {tempo_meta}:00 min"
+            ], "\n")
+        ), unsafe_allow_html=True)
+
+        st.subheader("⚠️ Picos de Tempo")
+        st.markdown(formatar_card(
+            "Análise de Picos",
+            conteudo_picos,
+            estilo="warning"
         ), unsafe_allow_html=True)
 
     with col2:
         st.subheader("🎯 Análise de Metas")
-        st.markdown(formatar_card(
-            "Desempenho",
-            f"""
-            ✅ Dentro da meta: {len(df[df['status_meta'] == 'Dentro']):,} ({(len(df[df['status_meta'] == 'Dentro'])/len(df)*100):.1f}%)
-            ❌ Fora da meta: {len(pontos_fora):,} ({(len(pontos_fora)/len(df)*100):.1f}%)
-            """
-        ), unsafe_allow_html=True)
-
-        st.markdown(formatar_card(
-            "Pontos Críticos",
-            f"""
-            📅 Top 3 Dias:
-            • {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
-            • {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
-            • {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
-            """
-        ), unsafe_allow_html=True)
-
-        st.markdown(formatar_card(
-            "Principais Impactos",
-            f"""
-            👥 Top 3 Clientes:
-            • {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
-            • {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
-            • {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
-            """
-        ), unsafe_allow_html=True)
-
-    with col3:
-        st.subheader("⚠️ Análise de Picos")
-        st.markdown(formatar_card(
-            "Maiores Tempos de Espera",
-            formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tpesper']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
-                for _, row in pico_espera.iterrows()
-            ], "\n\n"),
-            estilo="warning"
-        ), unsafe_allow_html=True)
-
-        st.markdown(formatar_card(
-            "Maiores Tempos de Permanência",
-            formatar_lista([
-                f"""
-                📍 {formatar_tempo(row['tempo_permanencia']/60)}
-                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                👥 {row['CLIENTE']}
-                🔧 {row['OPERAÇÃO']}
-                """
-                for _, row in pico_permanencia.iterrows()
-            ], "\n\n"),
-            estilo="warning"
-        ), unsafe_allow_html=True)
+        st.markdown(formatar_card("Desempenho e Pontos Críticos", conteudo_metas), unsafe_allow_html=True)
+        
+        st.subheader("🚛 Análise de Comboios")
+        st.markdown(formatar_card("Resumo e Análise", conteudo_comboios), unsafe_allow_html=True)
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba Geral do dashboard"""
