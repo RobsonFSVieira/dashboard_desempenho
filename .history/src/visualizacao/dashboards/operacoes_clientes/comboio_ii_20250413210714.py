@@ -70,14 +70,15 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     fig.add_trace(
         go.Bar(
             name='Senhas Retiradas',
-            x=metricas_hora['hora'],
-            y=metricas_hora['retiradas'],
+            x=metricas_hora['retiradas'],
+            y=[f'{i:02d}h' for i in metricas_hora['hora']],
+            orientation='h',
             marker_color=cores_tema['secundaria'],
             text=metricas_hora['retiradas'].astype(int),
             textposition='outside',
-            textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='%{text}',  # Removido negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textfont={'family': 'Arial Black', 'size': 16},
+            texttemplate='<b>%{text}</b>',
+            cliponaxis=False,
         )
     )
     
@@ -85,14 +86,15 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     fig.add_trace(
         go.Bar(
             name='Senhas Atendidas',
-            x=metricas_hora['hora'],
-            y=metricas_hora['atendidas'],
+            x=metricas_hora['atendidas'],
+            y=[f'{i:02d}h' for i in metricas_hora['hora']],
+            orientation='h',
             marker_color=cores_tema['primaria'],
             text=metricas_hora['atendidas'].astype(int),
             textposition='outside',
-            textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='%{text}',  # Removido negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textfont={'family': 'Arial Black', 'size': 16},
+            texttemplate='<b>%{text}</b>',
+            cliponaxis=False,
         )
     )
     
@@ -100,74 +102,68 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     fig.add_trace(
         go.Scatter(
             name='Senhas Pendentes',
-            x=metricas_hora['hora'],
-            y=metricas_hora['pendentes'],
+            x=metricas_hora['pendentes'],
+            y=[f'{i:02d}h' for i in metricas_hora['hora']],
             mode='lines+markers+text',
             line=dict(color=cores_tema['alerta'], width=2),
             marker=dict(size=6, symbol='circle'),
             text=metricas_hora['pendentes'].astype(int),
-            textposition='top center',
-            textfont=dict(
-                size=16,  # Aumentado para 16
-                family='Arial Black',
-                color='#8b0000'  # Vermelho mais escuro
-            ),
-            texttemplate='%{text}',  # Removido negrito
-            cliponaxis=False,  # Evita corte dos rótulos
+            textposition='middle right',
+            textfont=dict(size=16, family='Arial Black', color='#8b0000'),
+            texttemplate='<b>%{text}</b>',
+            cliponaxis=False,
         )
     )
 
-    # Atualiza layout para acomodar os rótulos maiores
+    # Atualiza layout
     titulo = f"Análise Hora a Hora {'- ' + cliente if cliente else 'Geral'}"
     fig.update_layout(
         title={
             'text': titulo,
-            'font': {'size': 20, 'color': cores_tema['texto']},  # Aumentado tamanho do título
+            'font': {'size': 20, 'color': cores_tema['texto']},
             'x': 0.5,
             'xanchor': 'center',
-            'y': 0.95  # Ajustado posição do título
+            'y': 0.95
         },
         xaxis_title={
-            'text': "Hora do Dia",
-            'font': {'size': 16, 'color': cores_tema['texto']}  # Aumentado tamanho da fonte
+            'text': "Quantidade de Senhas",
+            'font': {'size': 16, 'color': cores_tema['texto']}
         },
         yaxis_title={
-            'text': "Quantidade de Senhas",
-            'font': {'size': 16, 'color': cores_tema['texto']}  # Aumentado tamanho da fonte
+            'text': "Hora do Dia",
+            'font': {'size': 16, 'color': cores_tema['texto']}
         },
         barmode='group',
-        height=600,  # Aumentado altura do gráfico
+        height=800,
         showlegend=True,
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor=cores_tema['fundo'],
         legend={
             'orientation': 'h',
             'yanchor': 'bottom',
-            'y': 1.05,  # Ajustado posição da legenda
+            'y': 1.05,
             'xanchor': 'right',
             'x': 1,
-            'font': {'size': 14, 'color': cores_tema['texto']},  # Aumentado tamanho da fonte
+            'font': {'size': 14, 'color': cores_tema['texto']},
             'bgcolor': 'rgba(0,0,0,0)'
         },
-        margin=dict(l=40, r=40, t=100, b=100),  # Aumentada margem inferior
+        margin=dict(l=80, r=120, t=100, b=60),
         xaxis=dict(
-            tickmode='array',
-            ticktext=[f'{i:02d}h' for i in range(24)],  # Formata como 00h, 01h, etc
-            tickvals=list(range(24)),
             tickfont={'color': cores_tema['texto'], 'size': 12},
             gridcolor=cores_tema['grid'],
             showline=True,
             linewidth=1,
             linecolor=cores_tema['grid'],
-            range=[-0.5, 23.5]  # Ajusta o range para mostrar todas as horas
+            zeroline=False,
         ),
         yaxis=dict(
+            tickfont={'color': cores_tema['texto'], 'size': 12},
             gridcolor=cores_tema['grid'],
             showline=True,
             linewidth=1,
             linecolor=cores_tema['grid'],
-            tickfont={'color': cores_tema['texto'], 'size': 12},
-            range=[0, metricas_hora[['retiradas', 'atendidas', 'pendentes']].max().max() * 1.3]  # Aumentado espaço
+            zeroline=False,
+            autorange='reversed'
         )
     )
     
@@ -211,75 +207,23 @@ def mostrar_aba(dados, filtros):
         # Insights
         st.subheader("📊 Insights")
         with st.expander("Ver insights"):
+            # Encontrar horário com maior acúmulo
             hora_critica = metricas.loc[metricas['pendentes'].idxmax()]
+            
+            st.write("#### Principais Observações:")
+            st.write(f"**Horário Mais Crítico:** {int(hora_critica['hora']):02d}:00h")
+            st.write(f"- Senhas Pendentes: {int(hora_critica['pendentes'])}")
+            st.write(f"- Senhas Retiradas: {int(hora_critica['retiradas'])}")
+            st.write(f"- Senhas Atendidas: {int(hora_critica['atendidas']}")
+            
+            # Calcular eficiência do atendimento
             total_retiradas = metricas['retiradas'].sum()
             total_atendidas = metricas['atendidas'].sum()
             eficiencia = (total_atendidas / total_retiradas * 100) if total_retiradas > 0 else 0
             
-            # 1. Visão Geral
-            st.markdown("### 📈 Visão Geral")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric(
-                    "🎟️ Total de Senhas",
-                    f"{int(total_retiradas)}",
-                    f"{eficiencia:.1f}% de eficiência"
-                )
-            
-            with col2:
-                st.metric(
-                    "✅ Senhas Atendidas",
-                    f"{int(total_atendidas)}",
-                    f"Pendentes: {int(total_retiradas - total_atendidas)}"
-                )
-            
-            # 2. Análise Temporal
-            st.markdown("### ⏱️ Análise Temporal")
-            col3, col4 = st.columns(2)
-            
-            with col3:
-                st.markdown("#### ⚠️ Horário Mais Crítico")
-                st.write(f"""
-                - **Hora:** {int(hora_critica['hora']):02d}:00h
-                - Senhas Pendentes: {int(hora_critica['pendentes'])}
-                - Senhas Retiradas: {int(hora_critica['retiradas'])}
-                - Senhas Atendidas: {int(hora_critica['atendidas'])}
-                """)
-            
-            with col4:
-                st.markdown("#### 📊 Distribuição")
-                
-                # Calcular médias por período
-                manha = metricas.loc[6:11, 'retiradas'].mean()
-                tarde = metricas.loc[12:17, 'retiradas'].mean()
-                noite = metricas.loc[18:23, 'retiradas'].mean()
-                
-                st.write(f"""
-                - **Manhã (6h-11h):** {int(manha)} senhas/hora
-                - **Tarde (12h-17h):** {int(tarde)} senhas/hora
-                - **Noite (18h-23h):** {int(noite)} senhas/hora
-                """)
-            
-            # 3. Recomendações
-            st.markdown("### 💡 Recomendações")
-            col5, col6 = st.columns(2)
-            
-            with col5:
-                st.markdown("#### 🎯 Ações Imediatas")
-                st.write("""
-                - Reforçar equipe no horário crítico
-                - Monitorar acúmulo de senhas
-                - Priorizar redução de pendências
-                """)
-            
-            with col6:
-                st.markdown("#### 📋 Ações Preventivas")
-                st.write("""
-                - Distribuir retiradas ao longo do dia
-                - Implementar sistema de agendamento
-                - Comunicar horários alternativos
-                """)
+            st.write(f"\n**Eficiência do Atendimento:** {eficiencia:.1f}%")
+            st.write(f"- Total de Senhas Retiradas: {int(total_retiradas)}")
+            st.write(f"- Total de Senhas Atendidas: {int(total_atendidas)}")
     
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise de Chegada em Comboio II")

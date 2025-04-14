@@ -76,7 +76,7 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             text=metricas_hora['retiradas'].astype(int),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='%{text}',  # Removido negrito
+            texttemplate='<b>%{text}</b>',  # Texto em negrito
             cliponaxis=False,  # Evita corte dos rótulos
         )
     )
@@ -91,7 +91,7 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
             text=metricas_hora['atendidas'].astype(int),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},  # Aumentado para 16
-            texttemplate='%{text}',  # Removido negrito
+            texttemplate='<b>%{text}</b>',  # Texto em negrito
             cliponaxis=False,  # Evita corte dos rótulos
         )
     )
@@ -112,7 +112,7 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
                 family='Arial Black',
                 color='#8b0000'  # Vermelho mais escuro
             ),
-            texttemplate='%{text}',  # Removido negrito
+            texttemplate='<b>%{text}</b>',  # Texto em negrito
             cliponaxis=False,  # Evita corte dos rótulos
         )
     )
@@ -211,75 +211,23 @@ def mostrar_aba(dados, filtros):
         # Insights
         st.subheader("📊 Insights")
         with st.expander("Ver insights"):
+            # Encontrar horário com maior acúmulo
             hora_critica = metricas.loc[metricas['pendentes'].idxmax()]
+            
+            st.write("#### Principais Observações:")
+            st.write(f"**Horário Mais Crítico:** {int(hora_critica['hora']):02d}:00h")
+            st.write(f"- Senhas Pendentes: {int(hora_critica['pendentes'])}")
+            st.write(f"- Senhas Retiradas: {int(hora_critica['retiradas'])}")
+            st.write(f"- Senhas Atendidas: {int(hora_critica['atendidas'])}")
+            
+            # Calcular eficiência do atendimento
             total_retiradas = metricas['retiradas'].sum()
             total_atendidas = metricas['atendidas'].sum()
             eficiencia = (total_atendidas / total_retiradas * 100) if total_retiradas > 0 else 0
             
-            # 1. Visão Geral
-            st.markdown("### 📈 Visão Geral")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric(
-                    "🎟️ Total de Senhas",
-                    f"{int(total_retiradas)}",
-                    f"{eficiencia:.1f}% de eficiência"
-                )
-            
-            with col2:
-                st.metric(
-                    "✅ Senhas Atendidas",
-                    f"{int(total_atendidas)}",
-                    f"Pendentes: {int(total_retiradas - total_atendidas)}"
-                )
-            
-            # 2. Análise Temporal
-            st.markdown("### ⏱️ Análise Temporal")
-            col3, col4 = st.columns(2)
-            
-            with col3:
-                st.markdown("#### ⚠️ Horário Mais Crítico")
-                st.write(f"""
-                - **Hora:** {int(hora_critica['hora']):02d}:00h
-                - Senhas Pendentes: {int(hora_critica['pendentes'])}
-                - Senhas Retiradas: {int(hora_critica['retiradas'])}
-                - Senhas Atendidas: {int(hora_critica['atendidas'])}
-                """)
-            
-            with col4:
-                st.markdown("#### 📊 Distribuição")
-                
-                # Calcular médias por período
-                manha = metricas.loc[6:11, 'retiradas'].mean()
-                tarde = metricas.loc[12:17, 'retiradas'].mean()
-                noite = metricas.loc[18:23, 'retiradas'].mean()
-                
-                st.write(f"""
-                - **Manhã (6h-11h):** {int(manha)} senhas/hora
-                - **Tarde (12h-17h):** {int(tarde)} senhas/hora
-                - **Noite (18h-23h):** {int(noite)} senhas/hora
-                """)
-            
-            # 3. Recomendações
-            st.markdown("### 💡 Recomendações")
-            col5, col6 = st.columns(2)
-            
-            with col5:
-                st.markdown("#### 🎯 Ações Imediatas")
-                st.write("""
-                - Reforçar equipe no horário crítico
-                - Monitorar acúmulo de senhas
-                - Priorizar redução de pendências
-                """)
-            
-            with col6:
-                st.markdown("#### 📋 Ações Preventivas")
-                st.write("""
-                - Distribuir retiradas ao longo do dia
-                - Implementar sistema de agendamento
-                - Comunicar horários alternativos
-                """)
+            st.write(f"\n**Eficiência do Atendimento:** {eficiencia:.1f}%")
+            st.write(f"- Total de Senhas Retiradas: {int(total_retiradas)}")
+            st.write(f"- Total de Senhas Atendidas: {int(total_atendidas)}")
     
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise de Chegada em Comboio II")
