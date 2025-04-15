@@ -236,23 +236,6 @@ def mostrar_aba(dados, filtros):
     
     try:
         st.session_state['tema_atual'] = detectar_tema()
-        
-        # Obter datas disponíveis na base dentro do período 2
-        df = dados['base']
-        mask_periodo = (
-            (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-            (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-        )
-        datas_disponiveis = sorted(df[mask_periodo]['retirada'].dt.date.unique())
-        
-        if len(datas_disponiveis) == 0:
-            st.warning("Não existem dados para o período selecionado.")
-            return
-            
-        # Formatar datas para exibição no formato brasileiro
-        datas_formatadas = [data.strftime('%d/%m/%Y') for data in datas_disponiveis]
-        datas_dict = dict(zip(datas_formatadas, datas_disponiveis))
-
         # Seleção de visualização
         tipo_analise = st.radio(
             "Visualizar:",
@@ -260,6 +243,9 @@ def mostrar_aba(dados, filtros):
             horizontal=True,
             key="comboio_ii_tipo_analise"
         )
+        
+        # Variável para armazenar data específica
+        data_especifica = None
         
         if tipo_analise == "Por Cliente":
             # Lista de clientes disponíveis
@@ -270,13 +256,15 @@ def mostrar_aba(dados, filtros):
                 key="comboio_ii_cliente_selectbox"
             )
             
-            # Seletor de data com formato dd/mm/aaaa
-            data_formatada = st.selectbox(
-                "Selecione uma data:",
-                options=datas_formatadas,
+            # Adicionar seletor de data
+            datas_disponiveis = sorted(dados['base']['retirada'].dt.date.unique())
+            data_especifica = st.date_input(
+                "Selecione uma data específica (opcional):",
+                value=None,
+                min_value=min(datas_disponiveis),
+                max_value=max(datas_disponiveis),
                 key="comboio_ii_data_cliente"
             )
-            data_especifica = datas_dict[data_formatada]
             
             # Calcular métricas e criar gráfico
             metricas = calcular_metricas_hora(dados, filtros, cliente=cliente_selecionado, data_especifica=data_especifica)
@@ -291,26 +279,30 @@ def mostrar_aba(dados, filtros):
                 key="comboio_ii_operacao_selectbox"
             )
             
-            # Seletor de data com formato dd/mm/aaaa
-            data_formatada = st.selectbox(
-                "Selecione uma data:",
-                options=datas_formatadas,
+            # Adicionar seletor de data
+            datas_disponiveis = sorted(dados['base']['retirada'].dt.date.unique())
+            data_especifica = st.date_input(
+                "Selecione uma data específica (opcional):",
+                value=None,
+                min_value=min(datas_disponiveis),
+                max_value=max(datas_disponiveis),
                 key="comboio_ii_data_operacao"
             )
-            data_especifica = datas_dict[data_formatada]
             
             # Calcular métricas e criar gráfico
             metricas = calcular_metricas_hora(dados, filtros, operacao=operacao_selecionada, data_especifica=data_especifica)
             fig = criar_grafico_comboio(metricas, operacao_selecionada)
             
         else:
-            # Seletor de data com formato dd/mm/aaaa
-            data_formatada = st.selectbox(
-                "Selecione uma data:",
-                options=datas_formatadas,
+            # Adicionar seletor de data para visão geral
+            datas_disponiveis = sorted(dados['base']['retirada'].dt.date.unique())
+            data_especifica = st.date_input(
+                "Selecione uma data específica (opcional):",
+                value=None,
+                min_value=min(datas_disponiveis),
+                max_value=max(datas_disponiveis),
                 key="comboio_ii_data_geral"
             )
-            data_especifica = datas_dict[data_formatada]
             
             # Calcular métricas e criar gráfico geral
             metricas = calcular_metricas_hora(dados, filtros, data_especifica=data_especifica)

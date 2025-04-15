@@ -237,22 +237,15 @@ def mostrar_aba(dados, filtros):
     try:
         st.session_state['tema_atual'] = detectar_tema()
         
-        # Obter datas disponíveis na base dentro do período 2
-        df = dados['base']
-        mask_periodo = (
-            (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-            (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-        )
-        datas_disponiveis = sorted(df[mask_periodo]['retirada'].dt.date.unique())
+        # Gerar todas as datas do período 2 selecionado na sidebar
+        inicio = filtros['periodo2']['inicio']
+        fim = filtros['periodo2']['fim']
+        datas_periodo2 = pd.date_range(start=inicio, end=fim, freq='D')
         
-        if len(datas_disponiveis) == 0:
-            st.warning("Não existem dados para o período selecionado.")
-            return
-            
-        # Formatar datas para exibição no formato brasileiro
-        datas_formatadas = [data.strftime('%d/%m/%Y') for data in datas_disponiveis]
-        datas_dict = dict(zip(datas_formatadas, datas_disponiveis))
-
+        # Formatar datas para exibição
+        datas_formatadas = [data.strftime('%d/%m/%Y') for data in datas_periodo2]
+        datas_dict = dict(zip(datas_formatadas, datas_periodo2.date))
+        
         # Seleção de visualização
         tipo_analise = st.radio(
             "Visualizar:",
