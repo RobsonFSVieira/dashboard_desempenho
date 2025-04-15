@@ -31,6 +31,9 @@ def criar_mapa_calor(dados, filtros, cliente=None):
         fill_value=0
     )
     
+    # Ordenar o índice (datas) em ordem decrescente
+    pivot = pivot.reindex(index=sorted(pivot.index, key=lambda x: pd.to_datetime(x, format='%d/%m/%Y'), reverse=True))
+    
     # Garantir todas as horas do dia (0-23)
     todas_horas = range(24)
     for hora in todas_horas:
