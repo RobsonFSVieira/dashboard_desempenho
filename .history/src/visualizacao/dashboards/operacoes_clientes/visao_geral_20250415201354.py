@@ -11,11 +11,7 @@ except ImportError:
 
 def calcular_metricas_gerais(dados, filtros):
     """Calcula métricas gerais para os dois períodos"""
-    st.write("Debug: Iniciando cálculo de métricas")
-    st.write(f"Debug: Filtros recebidos: {filtros}")
-    
     df = dados['base']
-    st.write(f"Debug: Tamanho do DataFrame base: {len(df)}")
     
     if df.empty:
         st.warning("Não há dados disponíveis na base.")
@@ -24,66 +20,33 @@ def calcular_metricas_gerais(dados, filtros):
     metricas = {}
     
     for periodo in ['periodo1', 'periodo2']:
-        st.write(f"\nDebug: Processando {periodo}")
-        
         # Validar filtros do período
-        if not filtros.get(periodo):
-            st.warning(f"Debug: {periodo} não encontrado nos filtros")
-            return None
-            
-        if not filtros[periodo].get('inicio') or not filtros[periodo].get('fim'):
-            st.warning(f"Debug: Datas início/fim não encontradas para {periodo}")
-            st.write(f"Debug: Conteúdo do filtro {periodo}: {filtros[periodo]}")
+        if not filtros.get(periodo) or not filtros[periodo].get('inicio') or not filtros[periodo].get('fim'):
+            st.warning(f"Filtros inválidos para {periodo}")
             return None
             
         # Filtrar dados por período
-        st.write(f"Debug: Filtrando dados para {periodo}")
-        st.write(f"Debug: Data início: {filtros[periodo]['inicio']}")
-        st.write(f"Debug: Data fim: {filtros[periodo]['fim']}")
-        
         mask = (
             (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
             (df['retirada'].dt.date <= filtros[periodo]['fim'])
         )
         df_periodo = df[mask].copy()
         
-        st.write(f"Debug: Registros encontrados para {periodo}: {len(df_periodo)}")
-        
         if df_periodo.empty:
             st.warning(f"Não há dados disponíveis para o {periodo}")
             return None
         
-        # Debug dos dados antes do cálculo
-        st.write(f"Debug: Colunas disponíveis: {df_periodo.columns.tolist()}")
-        st.write(f"Debug: Amostra de tempos de atendimento: {df_periodo['tpatend'].head()}")
-        st.write(f"Debug: Amostra de tempos de espera: {df_periodo['tpesper'].head()}")
-        
-        # Calcular métricas com validação e debug
-        total_atend = len(df_periodo)
-        tempo_atend = df_periodo['tpatend'].mean() / 60 if not df_periodo['tpatend'].isna().all() else 0
-        tempo_espera = df_periodo['tpesper'].mean() / 60 if not df_periodo['tpesper'].isna().all() else 0
-        tempo_perm = df_periodo['tempo_permanencia'].mean() / 60 if not df_periodo['tempo_permanencia'].isna().all() else 0
-        
-        st.write(f"""
-        Debug: Métricas calculadas para {periodo}:
-        - Total atendimentos: {total_atend}
-        - Tempo médio atendimento: {tempo_atend:.2f} min
-        - Tempo médio espera: {tempo_espera:.2f} min
-        - Tempo médio permanência: {tempo_perm:.2f} min
-        """)
-        
+        # Calcular métricas com validação
         metricas[periodo] = {
-            'total_atendimentos': total_atend,
-            'tempo_medio_atendimento': tempo_atend,
-            'tempo_medio_espera': tempo_espera,
-            'tempo_medio_permanencia': tempo_perm,
+            'total_atendimentos': len(df_periodo),
+            'tempo_medio_atendimento': df_periodo['tpatend'].mean() / 60 if not df_periodo['tpatend'].isna().all() else 0,
+            'tempo_medio_espera': df_periodo['tpesper'].mean() / 60 if not df_periodo['tpesper'].isna().all() else 0,
+            'tempo_medio_permanencia': df_periodo['tempo_permanencia'].mean() / 60 if not df_periodo['tempo_permanencia'].isna().all() else 0,
             'qtd_clientes': df_periodo['CLIENTE'].nunique(),
             'qtd_operacoes': df_periodo['OPERAÇÃO'].nunique()
         }
-
-    # Debug das variações
-    st.write("\nDebug: Calculando variações entre períodos")
     
+    # Calcular variações entre períodos
     var_total = ((metricas['periodo2']['total_atendimentos'] - metricas['periodo1']['total_atendimentos']) / 
                 metricas['periodo1']['total_atendimentos'] * 100) if metricas['periodo1']['total_atendimentos'] > 0 else 0
                 
@@ -175,50 +138,9 @@ def mostrar_aba(dados, filtros):
     st.header("Visão Geral do Atendimento")
     
     try:
-        # Debug inicial detalhado
-        st.write("=== Debug Detalhado ===")
-        st.write("1. Verificação de Dados:")
-        st.write(f"- Dados recebidos: {type(dados)}")
-        st.write(f"- Chaves disponíveis: {dados.keys() if dados else 'Nenhum dado'}")
-        
-        if dados and 'base' in dados:
-            st.write("\n2. Informações do DataFrame:")
-            st.write(f"- Tamanho: {len(dados['base'])}")
-            st.write(f"- Colunas: {dados['base'].columns.tolist()}")
-            st.write(f"- Primeiras linhas:")
-            st.write(dados['base'].head())
-            st.write("\n3. Informações de Data:")
-            st.write(f"- Menor data: {dados['base']['retirada'].min()}")
-            st.write(f"- Maior data: {dados['base']['retirada'].max()}")
-        
-        st.write("\n4. Verificação dos Filtros:")
-        st.write(f"- Filtros recebidos: {type(filtros)}")
-        for periodo in ['periodo1', 'periodo2']:
-            if filtros and periodo in filtros:
-                st.write(f"\nFiltro {periodo}:")
-                st.write(f"- Início: {filtros[periodo].get('inicio')}")
-                st.write(f"- Fim: {filtros[periodo].get('fim')}")
-                if 'inicio' in filtros[periodo] and 'fim' in filtros[periodo]:
-                    st.write(f"- Tipo data início: {type(filtros[periodo]['inicio'])}")
-                    st.write(f"- Tipo data fim: {type(filtros[periodo]['fim'])}")
-            else:
-                st.write(f"\n{periodo} não encontrado ou inválido")
-        
-        st.write("\n=== Fim do Debug ===")
-        st.markdown("---")
-
-        # Continua com o código original
-        st.write("Debug: Iniciando visualização geral")
-        st.write(f"Debug: Estrutura dos dados recebidos: {dados.keys() if dados else None}")
-        st.write(f"Debug: Estrutura dos filtros: {filtros}")
-        
         # Validar dados de entrada
-        if not dados or 'base' not in dados:
-            st.warning("Debug: Dados não encontrados ou sem chave 'base'")
-            return
-            
-        if dados['base'].empty:
-            st.warning("Debug: DataFrame base está vazio")
+        if not dados or 'base' not in dados or dados['base'].empty:
+            st.warning("Não há dados disponíveis para análise.")
             return
             
         if not filtros or not all(periodo in filtros for periodo in ['periodo1', 'periodo2']):
@@ -309,9 +231,4 @@ def mostrar_aba(dados, filtros):
     
     except Exception as e:
         st.error(f"Erro ao gerar a visão geral: {str(e)}")
-        st.write("\n=== Debug de Erro ===")
-        st.write(f"Tipo do erro: {type(e).__name__}")
-        st.write(f"Descrição: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
-        st.write("=== Fim do Debug de Erro ===")
+        st.exception(e)

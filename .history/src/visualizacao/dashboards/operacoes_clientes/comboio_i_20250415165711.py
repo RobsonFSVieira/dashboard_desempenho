@@ -47,7 +47,7 @@ def criar_mapa_calor(dados, filtros, cliente=None):
         x=[f"{h:02d}h" for h in pivot.columns],
         y=pivot.index,
         text=pivot.values,
-        texttemplate="%{text}" if "%{text} != 0" else "",  # Mostrar apenas valores não-zero
+        texttemplate="<b>%{text}</b>" if "%{text}" != "0" else "",  # Oculta zeros
         textfont={
             "size": 16,
             "family": "Arial Black",
@@ -57,15 +57,12 @@ def criar_mapa_calor(dados, filtros, cliente=None):
         hovertemplate="Data: %{y}<br>Hora: %{x}<br>Quantidade: %{customdata}<extra></extra>",
         colorscale=[
             [0.0, 'rgba(0,0,0,0)'],      # Transparente para zeros
-            [0.001, 'rgba(0,0,0,0.1)'],  # Quase transparente para valores muito baixos
+            [0.001, 'rgba(0,0,0,0.1)'],   # Quase transparente para valores muito baixos
             [0.3, cores_tema['secundaria']],
             [0.7, cores_tema['primaria']],
             [1.0, cores_tema['erro']]
         ],
-        showscale=True,
-        hoverongaps=False,  # Desabilita hover em células vazias
-        zauto=True,         # Ajusta escala de cores automaticamente
-        zmid=0              # Define o ponto médio da escala
+        showscale=True
     ))
     
     # Atualizar layout com configurações seguras

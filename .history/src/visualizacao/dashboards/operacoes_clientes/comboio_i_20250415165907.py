@@ -41,13 +41,17 @@ def criar_mapa_calor(dados, filtros, cliente=None):
             pivot[hora] = 0
     pivot = pivot.reindex(columns=sorted(pivot.columns))
     
+    # Converter zeros para None na matriz de dados
+    pivot_values = pivot.values
+    pivot_values[pivot_values == 0] = None
+    
     # Criar mapa de calor com configurações atualizadas
     fig = go.Figure(data=go.Heatmap(
-        z=pivot.values,
+        z=pivot_values,
         x=[f"{h:02d}h" for h in pivot.columns],
         y=pivot.index,
         text=pivot.values,
-        texttemplate="%{text}" if "%{text} != 0" else "",  # Mostrar apenas valores não-zero
+        texttemplate='%{text}',  # Mostra apenas valores diferentes de None
         textfont={
             "size": 16,
             "family": "Arial Black",
@@ -56,16 +60,14 @@ def criar_mapa_calor(dados, filtros, cliente=None):
         customdata=pivot.values,
         hovertemplate="Data: %{y}<br>Hora: %{x}<br>Quantidade: %{customdata}<extra></extra>",
         colorscale=[
-            [0.0, 'rgba(0,0,0,0)'],      # Transparente para zeros
+            [0.0, 'rgba(0,0,0,0)'],      # Transparente para None/zeros
             [0.001, 'rgba(0,0,0,0.1)'],  # Quase transparente para valores muito baixos
             [0.3, cores_tema['secundaria']],
             [0.7, cores_tema['primaria']],
             [1.0, cores_tema['erro']]
         ],
         showscale=True,
-        hoverongaps=False,  # Desabilita hover em células vazias
-        zauto=True,         # Ajusta escala de cores automaticamente
-        zmid=0              # Define o ponto médio da escala
+        hoverongaps=False  # Desabilita hover em células vazias
     ))
     
     # Atualizar layout com configurações seguras

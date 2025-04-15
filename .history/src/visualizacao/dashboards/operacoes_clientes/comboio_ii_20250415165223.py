@@ -73,22 +73,20 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     cores_tema = obter_cores_tema()
     fig = go.Figure()
     
-    # Converter zeros para None para não exibir
-    def replace_zeros(series):
-        return [None if x == 0 else x for x in series]
-    
     # Adiciona barras de senhas retiradas
     fig.add_trace(
         go.Bar(
             name='Senhas Retiradas',
             x=metricas_hora['hora'],
-            y=replace_zeros(metricas_hora['retiradas']),
+            y=metricas_hora['retiradas'],
             marker_color=cores_tema['secundaria'],
-            text=replace_zeros(metricas_hora['retiradas'].astype(int)),
+            text=metricas_hora['retiradas'].astype(int),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
-            texttemplate='%{text:d}',
+            texttemplate='%{text:d}' if '%{text}' != '0' else '',
             cliponaxis=False,
+            customdata=metricas_hora['retiradas'].astype(int),
+            hovertemplate='%{customdata}' if '%{customdata}' != '0' else None,
         )
     )
     
@@ -97,13 +95,15 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         go.Bar(
             name='Senhas Atendidas',
             x=metricas_hora['hora'],
-            y=replace_zeros(metricas_hora['atendidas']),
+            y=metricas_hora['atendidas'],
             marker_color=cores_tema['primaria'],
-            text=replace_zeros(metricas_hora['atendidas'].astype(int)),
+            text=metricas_hora['atendidas'].astype(int),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
-            texttemplate='%{text:d}',
+            texttemplate='%{text:d}' if '%{text}' != '0' else '',
             cliponaxis=False,
+            customdata=metricas_hora['atendidas'].astype(int),
+            hovertemplate='%{customdata}' if '%{customdata}' != '0' else None,
         )
     )
     
@@ -112,13 +112,15 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         go.Bar(
             name='Senhas Pendentes',
             x=metricas_hora['hora'],
-            y=replace_zeros(metricas_hora['pendentes']),
+            y=metricas_hora['pendentes'],
             marker_color=cores_tema['alerta'],
-            text=replace_zeros(metricas_hora['pendentes'].astype(int)),
+            text=metricas_hora['pendentes'].astype(int),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
-            texttemplate='%{text:d}',
+            texttemplate='%{text:d}' if '%{text}' != '0' else '',
             cliponaxis=False,
+            customdata=metricas_hora['pendentes'].astype(int),
+            hovertemplate='%{customdata}' if '%{customdata}' != '0' else None,
         )
     )
 

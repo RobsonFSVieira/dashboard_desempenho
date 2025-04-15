@@ -41,13 +41,17 @@ def criar_mapa_calor(dados, filtros, cliente=None):
             pivot[hora] = 0
     pivot = pivot.reindex(columns=sorted(pivot.columns))
     
+    # Converter zeros para strings vazias na exibição do texto
+    text_values = pivot.values.copy()
+    text_values[text_values == 0] = ''
+    
     # Criar mapa de calor com configurações atualizadas
     fig = go.Figure(data=go.Heatmap(
         z=pivot.values,
         x=[f"{h:02d}h" for h in pivot.columns],
         y=pivot.index,
-        text=pivot.values,
-        texttemplate="%{text}" if "%{text} != 0" else "",  # Mostrar apenas valores não-zero
+        text=text_values,  # Usar matrix com strings vazias para texto
+        texttemplate='%{text}',
         textfont={
             "size": 16,
             "family": "Arial Black",

@@ -42,31 +42,34 @@ def calcular_metricas_hora(dados, filtros, cliente=None, operacao=None, data_esp
         )
     df_filtrado = df[mask]
     
-    # Filtrar por cliente se especificado
     if cliente:
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'] == cliente]
     
-    # Filtrar por operação se especificado
     if operacao:
         df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'] == operacao]
     
-    # Agrupar por hora
     metricas_hora = pd.DataFrame()
     metricas_hora['hora'] = range(24)
     
-    # Calcular senhas retiradas por hora
-    retiradas = df_filtrado.groupby(df_filtrado['retirada'].dt.hour)['id'].count()
-    metricas_hora['retiradas'] = metricas_hora['hora'].map(retiradas).fillna(0)
+    # Agrupar por hora mantendo IDs
+    retiradas_group = df_filtrado.groupby(df_filtrado['retirada'].dt.hour)
+    retiradas_count = retiradas_group['id'].count()
+    retiradas_ids = retiradas_group.apply(lambda x: x['id'].tolist())
     
-    # Calcular senhas atendidas por hora
-    atendidas = df_filtrado.groupby(df_filtrado['inicio'].dt.hour)['id'].count()
-    metricas_hora['atendidas'] = metricas_hora['hora'].map(atendidas).fillna(0)
+    atendidas_group = df_filtrado.groupby(df_filtrado['inicio'].dt.hour)
+    atendidas_count = atendidas_group['id'].count()
+    atendidas_ids = atendidas_group.apply(lambda x: x['id'].tolist())
     
-    # Calcular senhas pendentes
+    # Preencher métricas
+    metricas_hora['retiradas'] = metricas_hora['hora'].map(retiradas_count).fillna(0)
+    metricas_hora['atendidas'] = metricas_hora['hora'].map(atendidas_count).fillna(0)
+    metricas_hora['ids_retiradas'] = metricas_hora['hora'].map(retiradas_ids).fillna(pd.NA).apply(lambda x: [] if pd.isna(x) else x)
+    metricas_hora['ids_atendidas'] = metricas_hora['hora'].map(atendidas_ids).fillna(pd.NA).apply(lambda x: [] if pd.isna(x) else x)
+    
     metricas_hora['pendentes'] = metricas_hora['retiradas'].cumsum() - metricas_hora['atendidas'].cumsum()
-    metricas_hora['pendentes'] = metricas_hora['pendentes'].clip(lower=0)  # Evita valores negativos
+    metricas_hora['pendentes'] = metricas_hora['pendentes'].clip(lower=0)
     
-    return metricas_hora
+    return metricas_hora, df_filtrado
 
 def criar_grafico_comboio(metricas_hora, cliente=None):
     """Cria gráfico de barras para análise de comboio"""
@@ -180,24 +183,26 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
 
 def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=None, operacao=None):
     """Gera insights sobre o padrão de chegada em comboio"""
-    # Cálculos principais
-    total_retiradas = metricas['retiradas'].sum()
-    total_atendidas = metricas['atendidas'].sum()
+    metricas_df, df_filtrado = metricas
+    
+    # Cálculos principais continuam os mesmos
+    total_retiradas = metricas_df['retiradas'].sum()
+    total_atendidas = metricas_df['atendidas'].sum()
     eficiencia = (total_atendidas / total_retiradas * 100) if total_retiradas > 0 else 0
-    hora_critica = metricas.loc[metricas['pendentes'].idxmax()]
+    hora_critica = metricas_df.loc[metricas_df['pendentes'].idxmax()]
     
     # Análise por períodos (ajustado para novos horários)
-    manha = metricas.loc[7:14, 'retiradas'].mean()
-    tarde = metricas.loc[15:22, 'retiradas'].mean()
-    noite = pd.concat([metricas.loc[23:23, 'retiradas'], metricas.loc[0:7, 'retiradas']]).mean()
+    manha = metricas_df.loc[7:14, 'retiradas'].mean()
+    tarde = metricas_df.loc[15:22, 'retiradas'].mean()
+    noite = pd.concat([metricas_df.loc[23:23, 'retiradas'], metricas_df.loc[0:7, 'retiradas']]).mean()
     
     # Obter picos do período
-    hora_pico_retiradas = metricas.loc[metricas['retiradas'].idxmax()]
-    hora_pico_pendentes = metricas.loc[metricas['pendentes'].idxmax()]
-    hora_pico_atendidas = metricas.loc[metricas['atendidas'].idxmax()]
+    hora_pico_retiradas = metricas_df.loc[metricas_df['retiradas'].idxmax()]
+    hora_pico_pendentes = metricas_df.loc[metricas_df['pendentes'].idxmax()]
+    hora_pico_atendidas = metricas_df.loc[metricas_df['atendidas'].idxmax()]
     
     # Criar ranking dos 7 maiores picos
-    top_7_picos = metricas.nlargest(7, 'retiradas')
+    top_7_picos = metricas_df.nlargest(7, 'retiradas')
     
     # Exibição dos insights
     col1, col2 = st.columns(2)
@@ -250,25 +255,37 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
             
         st.markdown(f"**{idx}º** - {int(pico.retiradas):,} senhas às **{int(pico.hora):02d}:00h** {info_adicional}")
     
-    # Criar tabela de faseamento
+    # Criar tabela de faseamento com exemplos
     st.markdown("#### Timeline dos Picos")
     
-    # Formatar dados para a tabela
-    tabela_picos = pd.DataFrame({
-        'Horário': [f"{int(hora):02d}:00h" for hora in top_7_picos['hora']],
-        'Retiradas': top_7_picos['retiradas'].astype(int),
-        'Atendidas': top_7_picos['atendidas'].astype(int),
-        'Pendentes': top_7_picos['pendentes'].astype(int)
-    }).reset_index(drop=True)
+    # Preparar dados para a tabela
+    dados_tabela = []
+    for _, pico in top_7_picos.iterrows():
+        hora = int(pico['hora'])
+        ids_hora = pico['ids_retiradas'][:3]  # Pegar até 3 exemplos
+        
+        # Buscar detalhes das senhas exemplo
+        exemplos = df_filtrado[df_filtrado['id'].isin(ids_hora)][['id', 'CLIENTE', 'OPERAÇÃO']].to_dict('records')
+        exemplos_str = "\n".join([f"Senha {ex['id']} - {ex['CLIENTE']} - {ex['OPERAÇÃO']}" for ex in exemplos])
+        
+        dados_tabela.append({
+            'Horário': f"{hora:02d}:00h",
+            'Retiradas': int(pico['retiradas']),
+            'Atendidas': int(pico['atendidas']),
+            'Pendentes': int(pico['pendentes']),
+            'Exemplos': exemplos_str
+        })
     
-    # Estilizar e exibir tabela
+    # Criar e exibir tabela
+    tabela_picos = pd.DataFrame(dados_tabela)
     st.dataframe(
         tabela_picos,
         column_config={
             'Horário': st.column_config.TextColumn('Horário', width=100),
             'Retiradas': st.column_config.NumberColumn('Retiradas', format="%d", width=100),
             'Atendidas': st.column_config.NumberColumn('Atendidas', format="%d", width=100),
-            'Pendentes': st.column_config.NumberColumn('Pendentes', format="%d", width=100)
+            'Pendentes': st.column_config.NumberColumn('Pendentes', format="%d", width=100),
+            'Exemplos': st.column_config.TextColumn('Exemplos de Senhas', width=400)
         },
         hide_index=True,
         use_container_width=True
@@ -325,7 +342,7 @@ def mostrar_aba(dados, filtros):
             
             # Calcular métricas e criar gráfico
             metricas = calcular_metricas_hora(dados, filtros, cliente=cliente_selecionado, data_especifica=data_especifica)
-            fig = criar_grafico_comboio(metricas, cliente_selecionado)
+            fig = criar_grafico_comboio(metricas[0], cliente_selecionado)
             
         elif tipo_analise == "Por Operação":
             # Lista de operações disponíveis
@@ -346,7 +363,7 @@ def mostrar_aba(dados, filtros):
             
             # Calcular métricas e criar gráfico
             metricas = calcular_metricas_hora(dados, filtros, operacao=operacao_selecionada, data_especifica=data_especifica)
-            fig = criar_grafico_comboio(metricas, operacao_selecionada)
+            fig = criar_grafico_comboio(metricas[0], operacao_selecionada)
             
         else:
             # Seletor de data com formato dd/mm/aaaa
@@ -359,7 +376,7 @@ def mostrar_aba(dados, filtros):
             
             # Calcular métricas e criar gráfico geral
             metricas = calcular_metricas_hora(dados, filtros, data_especifica=data_especifica)
-            fig = criar_grafico_comboio(metricas)
+            fig = criar_grafico_comboio(metricas[0])
         
         # Exibir gráfico primeiro
         st.plotly_chart(fig, use_container_width=True)

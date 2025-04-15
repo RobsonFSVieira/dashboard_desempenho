@@ -175,39 +175,6 @@ def mostrar_aba(dados, filtros):
     st.header("Visão Geral do Atendimento")
     
     try:
-        # Debug inicial detalhado
-        st.write("=== Debug Detalhado ===")
-        st.write("1. Verificação de Dados:")
-        st.write(f"- Dados recebidos: {type(dados)}")
-        st.write(f"- Chaves disponíveis: {dados.keys() if dados else 'Nenhum dado'}")
-        
-        if dados and 'base' in dados:
-            st.write("\n2. Informações do DataFrame:")
-            st.write(f"- Tamanho: {len(dados['base'])}")
-            st.write(f"- Colunas: {dados['base'].columns.tolist()}")
-            st.write(f"- Primeiras linhas:")
-            st.write(dados['base'].head())
-            st.write("\n3. Informações de Data:")
-            st.write(f"- Menor data: {dados['base']['retirada'].min()}")
-            st.write(f"- Maior data: {dados['base']['retirada'].max()}")
-        
-        st.write("\n4. Verificação dos Filtros:")
-        st.write(f"- Filtros recebidos: {type(filtros)}")
-        for periodo in ['periodo1', 'periodo2']:
-            if filtros and periodo in filtros:
-                st.write(f"\nFiltro {periodo}:")
-                st.write(f"- Início: {filtros[periodo].get('inicio')}")
-                st.write(f"- Fim: {filtros[periodo].get('fim')}")
-                if 'inicio' in filtros[periodo] and 'fim' in filtros[periodo]:
-                    st.write(f"- Tipo data início: {type(filtros[periodo]['inicio'])}")
-                    st.write(f"- Tipo data fim: {type(filtros[periodo]['fim'])}")
-            else:
-                st.write(f"\n{periodo} não encontrado ou inválido")
-        
-        st.write("\n=== Fim do Debug ===")
-        st.markdown("---")
-
-        # Continua com o código original
         st.write("Debug: Iniciando visualização geral")
         st.write(f"Debug: Estrutura dos dados recebidos: {dados.keys() if dados else None}")
         st.write(f"Debug: Estrutura dos filtros: {filtros}")
@@ -309,9 +276,5 @@ def mostrar_aba(dados, filtros):
     
     except Exception as e:
         st.error(f"Erro ao gerar a visão geral: {str(e)}")
-        st.write("\n=== Debug de Erro ===")
-        st.write(f"Tipo do erro: {type(e).__name__}")
-        st.write(f"Descrição: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
-        st.write("=== Fim do Debug de Erro ===")
+        st.write("Debug: Stack trace completo:")
+        st.exception(e)
