@@ -54,18 +54,16 @@ def calcular_metricas_hora(dados, filtros, cliente=None, operacao=None, data_esp
     metricas_hora = pd.DataFrame()
     metricas_hora['hora'] = range(24)
     
-    # Agrupar mantendo os IDs das senhas e garantir valores numéricos
+    # Agrupar mantendo os IDs das senhas
     retiradas_grupo = df_filtrado.groupby(df_filtrado['retirada'].dt.hour)
-    metricas_hora['retiradas'] = pd.Series(retiradas_grupo.size()).reindex(range(24)).fillna(0)
+    metricas_hora['retiradas'] = retiradas_grupo.size()
     metricas_hora['senhas_hora'] = retiradas_grupo.apply(lambda x: x['id'].tolist())
     
-    # Calcular atendidas e pendentes com valores padrão
+    # Calcular atendidas e pendentes
     atendidas = df_filtrado.groupby(df_filtrado['inicio'].dt.hour)['id'].count()
     metricas_hora['atendidas'] = metricas_hora['hora'].map(atendidas).fillna(0)
     
-    # Garantir que não há NaN nos cálculos
-    metricas_hora['pendentes'] = (metricas_hora['retiradas'].fillna(0).cumsum() - 
-                                 metricas_hora['atendidas'].fillna(0).cumsum())
+    metricas_hora['pendentes'] = metricas_hora['retiradas'].cumsum() - metricas_hora['atendidas'].cumsum()
     metricas_hora['pendentes'] = metricas_hora['pendentes'].clip(lower=0)
     
     return metricas_hora, df_filtrado
@@ -75,18 +73,18 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     cores_tema = obter_cores_tema()
     fig = go.Figure()
     
-    # Converter zeros para None para não exibir, garantindo valores numéricos
+    # Converter zeros para None para não exibir
     def replace_zeros(series):
-        return [None if pd.isna(x) or x == 0 else int(x) for x in series]
+        return [None if x == 0 else x for x in series]
     
-    # Adiciona barras de senhas retiradas com tratamento de NaN
+    # Adiciona barras de senhas retiradas
     fig.add_trace(
         go.Bar(
             name='Senhas Retiradas',
             x=metricas_hora['hora'],
             y=replace_zeros(metricas_hora['retiradas']),
             marker_color=cores_tema['secundaria'],
-            text=replace_zeros(metricas_hora['retiradas']),
+            text=replace_zeros(metricas_hora['retiradas'].astype(int)),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
             texttemplate='%{text:d}',
@@ -94,14 +92,14 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         )
     )
     
-    # Adiciona barras de senhas atendidas com tratamento de NaN
+    # Adiciona barras de senhas atendidas
     fig.add_trace(
         go.Bar(
             name='Senhas Atendidas',
             x=metricas_hora['hora'],
             y=replace_zeros(metricas_hora['atendidas']),
             marker_color=cores_tema['primaria'],
-            text=replace_zeros(metricas_hora['atendidas']),
+            text=replace_zeros(metricas_hora['atendidas'].astype(int)),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
             texttemplate='%{text:d}',
@@ -109,14 +107,14 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         )
     )
     
-    # Adiciona barras de senhas pendentes com tratamento de NaN
+    # Adiciona barras de senhas pendentes
     fig.add_trace(
         go.Bar(
             name='Senhas Pendentes',
             x=metricas_hora['hora'],
             y=replace_zeros(metricas_hora['pendentes']),
             marker_color=cores_tema['alerta'],
-            text=replace_zeros(metricas_hora['pendentes']),
+            text=replace_zeros(metricas_hora['pendentes'].astype(int)),
             textposition='outside',
             textfont={'family': 'Arial Black', 'size': 16},
             texttemplate='%{text:d}',
@@ -257,52 +255,61 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
     # Criar tabela de faseamento com detalhes
     st.markdown("#### Timeline dos Picos")
     
-    # Definir colunas desejadas e verificar quais estão disponíveis
-    colunas_desejadas = [
-        'id', 'prefixo', 'numero', 'complemento', 'status', 
-        'retirada', 'inicio', 'fim', 'guichê', 'usuário'
-    ]
-    
+    # Preparar dados detalhados para cada pico
     dados_detalhados = []
     
-    # Criar tabs para cada horário de pico
-    tabs = st.tabs([f"{int(pico.hora):02d}:00h ({int(pico.retiradas)} senhas)" 
-                    for _, pico in top_7_picos.iterrows()])
+    for _, pico in top_7_picos.iterrows():
+        hora = int(pico['hora'])
+        senhas_hora = pico['senhas_hora']
+        
+        # Buscar detalhes das senhas na base
+        detalhes_senhas = df_base[df_base['id'].isin(senhas_hora)].copy()
+        detalhes_senhas['retirada'] = detalhes_senhas['retirada'].dt.strftime('%H:%M:%S')
+        detalhes_senhas['inicio'] = detalhes_senhas['inicio'].dt.strftime('%H:%M:%S')
+        
+        dados_detalhados.append({
+            'Horário': f"{hora:02d}:00h",
+            'Retiradas': int(pico['retiradas']),
+            'Atendidas': int(pico['atendidas']),
+            'Pendentes': int(pico['pendentes']),
+            'Detalhes': detalhes_senhas[['id', 'CLIENTE', 'OPERAÇÃO', 'retirada', 'inicio']].to_dict('records')
+        })
     
-    for tab, (_, pico) in zip(tabs, top_7_picos.iterrows()):
-        with tab:
-            hora = int(pico['hora'])
-            senhas_hora = pico['senhas_hora']
-            
-            # Buscar detalhes das senhas na base
-            detalhes_senhas = df_base[df_base['id'].isin(senhas_hora)].copy()
-            
-            # Formatar as colunas de data/hora
-            for col in ['retirada', 'inicio', 'fim']:
-                if col in detalhes_senhas.columns:
-                    detalhes_senhas[col] = detalhes_senhas[col].dt.strftime('%H:%M:%S')
-            
-            # Mostrar resumo do horário
-            st.write(f"### Detalhes do Horário {hora:02d}:00h")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Senhas Retiradas", int(pico['retiradas']))
-            col2.metric("Senhas Atendidas", int(pico['atendidas']))
-            col3.metric("Senhas Pendentes", int(pico['pendentes']))
-            
-            # Exibir tabela detalhada
+    # Criar e exibir tabela principal
+    tabela_picos = pd.DataFrame([{
+        'Horário': d['Horário'],
+        'Retiradas': d['Retiradas'],
+        'Atendidas': d['Atendidas'],
+        'Pendentes': d['Pendentes'],
+        'Detalhes': f"{len(d['Detalhes'])} senhas"
+    } for d in dados_detalhados])
+    
+    # Exibir tabela principal com botão para expandir detalhes
+    st.dataframe(
+        tabela_picos,
+        column_config={
+            'Horário': st.column_config.TextColumn('Horário', width=100),
+            'Retiradas': st.column_config.NumberColumn('Retiradas', format="%d", width=100),
+            'Atendidas': st.column_config.NumberColumn('Atendidas', format="%d", width=100),
+            'Pendentes': st.column_config.NumberColumn('Pendentes', format="%d", width=100),
+            'Detalhes': st.column_config.TextColumn('Detalhes', width=150)
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    # Exibir detalhes expandidos para cada horário
+    for dados in dados_detalhados:
+        with st.expander(f"Detalhes das senhas - {dados['Horário']}"):
+            df_detalhes = pd.DataFrame(dados['Detalhes'])
             st.dataframe(
-                detalhes_senhas[colunas_desejadas],
+                df_detalhes,
                 column_config={
-                    'id': st.column_config.NumberColumn('ID', width=70),
-                    'prefixo': st.column_config.TextColumn('Prefixo', width=80),
-                    'numero': st.column_config.NumberColumn('Número', width=80),
-                    'complemento': st.column_config.TextColumn('Complemento', width=100),
-                    'status': st.column_config.TextColumn('Status', width=100),
-                    'retirada': st.column_config.TextColumn('Retirada', width=100),
-                    'inicio': st.column_config.TextColumn('Início', width=100),
-                    'fim': st.column_config.TextColumn('Fim', width=100),
-                    'guichê': st.column_config.TextColumn('Guichê', width=80),
-                    'usuário': st.column_config.TextColumn('Usuário', width=120)
+                    'id': st.column_config.NumberColumn('Senha', width=80),
+                    'CLIENTE': st.column_config.TextColumn('Cliente', width=200),
+                    'OPERAÇÃO': st.column_config.TextColumn('Operação', width=200),
+                    'retirada': st.column_config.TextColumn('Hora Retirada', width=100),
+                    'inicio': st.column_config.TextColumn('Hora Início', width=100)
                 },
                 hide_index=True,
                 use_container_width=True

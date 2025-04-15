@@ -257,53 +257,86 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
     # Criar tabela de faseamento com detalhes
     st.markdown("#### Timeline dos Picos")
     
+    # Debug: mostrar colunas disponíveis
+    st.write("Colunas disponíveis no DataFrame:", df_base.columns.tolist())
+    
     # Definir colunas desejadas e verificar quais estão disponíveis
     colunas_desejadas = [
-        'id', 'prefixo', 'numero', 'complemento', 'status', 
-        'retirada', 'inicio', 'fim', 'guichê', 'usuário'
+        'id', 'prefixo', 'complemento', 'status_descricao', 
+        'retirada', 'inicio', 'fim', 'guiche', 'usuario'
     ]
+    colunas_disponiveis = [col for col in colunas_desejadas if col in df_base.columns]
+    
+    # Debug: mostrar colunas que serão usadas
+    st.write("Colunas que serão usadas:", colunas_disponiveis)
     
     dados_detalhados = []
+    for _, pico in top_7_picos.iterrows():
+        hora = int(pico['hora'])
+        senhas_hora = pico['senhas_hora']
+        
+        # Buscar detalhes das senhas na base
+        detalhes_senhas = df_base[df_base['id'].isin(senhas_hora)].copy()
+        
+        # Formatar as colunas de data/hora disponíveis
+        for col in ['retirada', 'inicio', 'fim']:
+            if col in detalhes_senhas.columns:
+                detalhes_senhas[col] = detalhes_senhas[col].dt.strftime('%H:%M:%S')
+        
+        # Usar apenas as colunas disponíveis
+        dados_detalhados.append({
+            'Horário': f"{hora:02d}:00h",
+            'Retiradas': int(pico['retiradas']),
+            'Atendidas': int(pico['atendidas']),
+            'Pendentes': int(pico['pendentes']),
+            'Detalhes': detalhes_senhas[colunas_disponiveis].to_dict('records')
+        })
     
-    # Criar tabs para cada horário de pico
-    tabs = st.tabs([f"{int(pico.hora):02d}:00h ({int(pico.retiradas)} senhas)" 
-                    for _, pico in top_7_picos.iterrows()])
+    # Criar e exibir tabela principal
+    tabela_picos = pd.DataFrame([{
+        'Horário': d['Horário'],
+        'Retiradas': d['Retiradas'],
+        'Atendidas': d['Atendidas'],
+        'Pendentes': d['Pendentes'],
+        'Detalhes': f"{len(d['Detalhes'])} senhas"
+    } for d in dados_detalhados])
     
-    for tab, (_, pico) in zip(tabs, top_7_picos.iterrows()):
-        with tab:
-            hora = int(pico['hora'])
-            senhas_hora = pico['senhas_hora']
+    # Exibir tabela principal com botão para expandir detalhes
+    st.dataframe(
+        tabela_picos,
+        column_config={
+            'Horário': st.column_config.TextColumn('Horário', width=100),
+            'Retiradas': st.column_config.NumberColumn('Retiradas', format="%d", width=100),
+            'Atendidas': st.column_config.NumberColumn('Atendidas', format="%d", width=100),
+            'Pendentes': st.column_config.NumberColumn('Pendentes', format="%d", width=100),
+            'Detalhes': st.column_config.TextColumn('Detalhes', width=150)
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    # Exibir detalhes expandidos para cada horário
+    for dados in dados_detalhados:
+        with st.expander(f"Detalhes das senhas - {dados['Horário']}"):
+            df_detalhes = pd.DataFrame(dados['Detalhes'])
             
-            # Buscar detalhes das senhas na base
-            detalhes_senhas = df_base[df_base['id'].isin(senhas_hora)].copy()
+            # Criar configuração de colunas apenas para as colunas disponíveis
+            column_config = {
+                col: st.column_config.TextColumn(col.title(), width=100)
+                for col in df_detalhes.columns
+            }
             
-            # Formatar as colunas de data/hora
-            for col in ['retirada', 'inicio', 'fim']:
-                if col in detalhes_senhas.columns:
-                    detalhes_senhas[col] = detalhes_senhas[col].dt.strftime('%H:%M:%S')
+            # Configurações específicas para algumas colunas
+            if 'id' in df_detalhes.columns:
+                column_config['id'] = st.column_config.NumberColumn('ID', width=70)
+            if 'prefixo' in df_detalhes.columns:
+                column_config['prefixo'] = st.column_config.TextColumn('Prefixo', width=80)
+            if 'complemento' in df_detalhes.columns:
+                column_config['complemento'] = st.column_config.TextColumn('Complemento', width=100)
             
-            # Mostrar resumo do horário
-            st.write(f"### Detalhes do Horário {hora:02d}:00h")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Senhas Retiradas", int(pico['retiradas']))
-            col2.metric("Senhas Atendidas", int(pico['atendidas']))
-            col3.metric("Senhas Pendentes", int(pico['pendentes']))
-            
-            # Exibir tabela detalhada
             st.dataframe(
-                detalhes_senhas[colunas_desejadas],
-                column_config={
-                    'id': st.column_config.NumberColumn('ID', width=70),
-                    'prefixo': st.column_config.TextColumn('Prefixo', width=80),
-                    'numero': st.column_config.NumberColumn('Número', width=80),
-                    'complemento': st.column_config.TextColumn('Complemento', width=100),
-                    'status': st.column_config.TextColumn('Status', width=100),
-                    'retirada': st.column_config.TextColumn('Retirada', width=100),
-                    'inicio': st.column_config.TextColumn('Início', width=100),
-                    'fim': st.column_config.TextColumn('Fim', width=100),
-                    'guichê': st.column_config.TextColumn('Guichê', width=80),
-                    'usuário': st.column_config.TextColumn('Usuário', width=120)
-                },
+                df_detalhes,
+                column_config=column_config,
                 hide_index=True,
                 use_container_width=True
             )
