@@ -103,18 +103,24 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         )
     )
     
-    # Adiciona barras de senhas pendentes
+    # Adiciona linha de senhas pendentes
     fig.add_trace(
-        go.Bar(
+        go.Scatter(
             name='Senhas Pendentes',
             x=metricas_hora['hora'],
             y=metricas_hora['pendentes'],
-            marker_color=cores_tema['alerta'],
+            mode='lines+markers+text',
+            line=dict(color=cores_tema['alerta'], width=2),
+            marker=dict(size=6, symbol='circle'),
             text=metricas_hora['pendentes'].astype(int),
-            textposition='outside',
-            textfont={'family': 'Arial Black', 'size': 16},
-            texttemplate='%{text}',
-            cliponaxis=False,
+            textposition='top center',
+            textfont=dict(
+                size=16,  # Aumentado para 16
+                family='Arial Black',
+                color='#8b0000'  # Vermelho mais escuro
+            ),
+            texttemplate='%{text}',  # Removido negrito
+            cliponaxis=False,  # Evita corte dos rótulos
         )
     )
 
