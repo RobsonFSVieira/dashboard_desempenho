@@ -114,29 +114,6 @@ def criar_grafico_atendimentos_diarios(dados, filtros):
     """Cria gráfico de atendimentos diários"""
     df = dados['base']
     
-    # Aplicar filtros de data
-    mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
-    df = df[mask]
-    
-    if df.empty:
-        return go.Figure().add_annotation(
-            text="Sem dados disponíveis para o período selecionado",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
-    
     # Agrupa dados por data
     df_diario = df.groupby(df['retirada'].dt.date).size().reset_index()
     df_diario.columns = ['data', 'quantidade']
@@ -155,29 +132,6 @@ def criar_grafico_atendimentos_diarios(dados, filtros):
 def criar_grafico_top_clientes(dados, filtros):
     """Cria gráfico dos top 10 clientes"""
     df = dados['base']
-    
-    # Aplicar filtros de data
-    mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
-    df = df[mask]
-    
-    if df.empty:
-        return go.Figure().add_annotation(
-            text="Sem dados disponíveis para o período selecionado",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
     
     # Agrupa dados por cliente
     df_clientes = df.groupby('CLIENTE').size().reset_index()
@@ -396,52 +350,8 @@ def mostrar_aba(dados, filtros):
     st.header("Visão Geral das Operações")
     
     try:
-        # Validação inicial dos dados
-        if not dados or 'base' not in dados or dados['base'].empty:
-            st.warning("Dados não disponíveis ou vazios.")
-            return
-        
-        # Criar cópia dos dados para evitar modificações indesejadas
-        df = dados['base'].copy()
-        
-        # Inicializar máscara como True para todos os registros
-        mask = pd.Series(True, index=df.index)
-        
-        # Aplicar filtros individualmente
-        if 'periodo2' in filtros and filtros['periodo2']:
-            date_mask = (
-                (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            mask &= date_mask
-        
-        if filtros.get('cliente') and filtros['cliente'] != ['Todos']:
-            client_mask = df['CLIENTE'].isin(filtros['cliente'])
-            mask &= client_mask
-        
-        if filtros.get('operacao') and filtros['operacao'] != ['Todas']:
-            op_mask = df['OPERAÇÃO'].isin(filtros['operacao'])
-            mask &= op_mask
-        
-        if filtros.get('turno') and filtros['turno'] != ['Todos']:
-            turno_mask = df['retirada'].dt.hour.apply(
-                lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')
-            ).isin(filtros['turno'])
-            mask &= turno_mask
-        
-        # Aplicar máscara final
-        df_filtrado = df[mask].copy()
-        
-        # Continuar apenas se houver dados
-        if df_filtrado.empty:
-            st.warning("Não há dados disponíveis para os filtros selecionados.")
-            return
-            
-        # Criar dados filtrados e continuar com o processamento
-        dados_filtrados = {'base': df_filtrado}
-        
-        # Calcular métricas
-        metricas = calcular_metricas_gerais(dados_filtrados, filtros)
+        # Cálculo das métricas gerais
+        metricas = calcular_metricas_gerais(dados, filtros)
         
         # Layout das métricas em colunas
         col1, col2, col3, col4 = st.columns(4)
@@ -478,18 +388,18 @@ def mostrar_aba(dados, filtros):
         col_left, col_right = st.columns(2)
         
         with col_left:
-            fig_diario = criar_grafico_atendimentos_diarios(dados_filtrados, filtros)
+            fig_diario = criar_grafico_atendimentos_diarios(dados, filtros)
             st.plotly_chart(fig_diario, use_container_width=True)
         
         with col_right:
-            fig_clientes = criar_grafico_top_clientes(dados_filtrados, filtros)
+            fig_clientes = criar_grafico_top_clientes(dados, filtros)
             st.plotly_chart(fig_clientes, use_container_width=True)
         
         # Insights
         st.markdown("---")
         st.subheader("📈 Análise Detalhada")
         with st.expander("Ver análise completa", expanded=True):
-            gerar_insights_gerais(dados_filtrados, filtros, metricas)
+            gerar_insights_gerais(dados, filtros, metricas)
     
     except Exception as e:
         st.error("Erro ao gerar a aba Geral")

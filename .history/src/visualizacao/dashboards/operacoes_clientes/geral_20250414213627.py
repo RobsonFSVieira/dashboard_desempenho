@@ -114,29 +114,6 @@ def criar_grafico_atendimentos_diarios(dados, filtros):
     """Cria gráfico de atendimentos diários"""
     df = dados['base']
     
-    # Aplicar filtros de data
-    mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
-    df = df[mask]
-    
-    if df.empty:
-        return go.Figure().add_annotation(
-            text="Sem dados disponíveis para o período selecionado",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
-    
     # Agrupa dados por data
     df_diario = df.groupby(df['retirada'].dt.date).size().reset_index()
     df_diario.columns = ['data', 'quantidade']
@@ -155,29 +132,6 @@ def criar_grafico_atendimentos_diarios(dados, filtros):
 def criar_grafico_top_clientes(dados, filtros):
     """Cria gráfico dos top 10 clientes"""
     df = dados['base']
-    
-    # Aplicar filtros de data
-    mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    
-    # Aplicar filtros adicionais
-    if filtros['cliente'] != ['Todos']:
-        mask &= df['CLIENTE'].isin(filtros['cliente'])
-    if filtros['operacao'] != ['Todas']:
-        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
-    if filtros['turno'] != ['Todos']:
-        mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
-    
-    df = df[mask]
-    
-    if df.empty:
-        return go.Figure().add_annotation(
-            text="Sem dados disponíveis para o período selecionado",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
     
     # Agrupa dados por cliente
     df_clientes = df.groupby('CLIENTE').size().reset_index()
@@ -238,11 +192,6 @@ def gerar_insights_gerais(dados, filtros, metricas):
         mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
     
     df = df[mask]
-
-    # Verificar se há dados após a aplicação dos filtros
-    if df.empty:
-        st.warning("Não há dados disponíveis para os filtros selecionados.")
-        return
     
     # Análise por períodos do dia
     df['hora'] = df['retirada'].dt.hour
@@ -252,31 +201,35 @@ def gerar_insights_gerais(dados, filtros, metricas):
     total = manha + tarde + noite
     
     # Evitar divisão por zero
-    total = max(total, 1)
+    total = max(total, 1)  # Se total for 0, usa 1 para evitar divisão por zero
     
     # Análise de eficiência
     tempo_meta = filtros.get('meta_permanencia', 30)
     atendimentos_eficientes = df[df['tempo_permanencia'] <= tempo_meta * 60]['id'].count()
-    total_atendimentos = len(df)
-    taxa_eficiencia = (atendimentos_eficientes / total_atendimentos * 100) if total_atendimentos > 0 else 0
+    taxa_eficiencia = (atendimentos_eficientes / len(df) * 100) if len(df) > 0 else 0
     
     # Análise de pontos fora da meta
     tempo_meta_segundos = tempo_meta * 60
     df['status_meta'] = df['tempo_permanencia'].apply(lambda x: 'Dentro' if x <= tempo_meta_segundos else 'Fora')
     pontos_fora = df[df['status_meta'] == 'Fora']
-    
-    # Cálculos seguros para percentuais
-    total_registros = len(df) or 1  # Evita divisão por zero
-    dentro_meta = len(df[df['status_meta'] == 'Dentro'])
-    fora_meta = len(pontos_fora)
-    perc_dentro = (dentro_meta / total_registros * 100) if total_registros > 0 else 0
-    perc_fora = (fora_meta / total_registros * 100) if total_registros > 0 else 0
 
-    # Análises detalhadas com tratamento para DataFrames vazios
+    # Análise detalhada dos pontos fora da meta
     dias_criticos = df[df['status_meta'] == 'Fora'].groupby(df['retirada'].dt.date).size().sort_values(ascending=False)
     clientes_criticos = df[df['status_meta'] == 'Fora'].groupby('CLIENTE').size().sort_values(ascending=False)
+    operacoes_criticas = df[df['status_meta'] == 'Fora'].groupby('OPERAÇÃO').size().sort_values(ascending=False)
+
+    # Análise de dias da semana
+    df['dia_semana'] = df['retirada'].dt.day_name()
+    dias_semana_fora = df[df['status_meta'] == 'Fora'].groupby('dia_semana').size()
     
-    # Layout dos cards com verificação de dados
+    # Análise de horários críticos
+    df['hora_completa'] = df['retirada'].dt.hour
+    horas_criticas = df[df['status_meta'] == 'Fora'].groupby('hora_completa').size().sort_values(ascending=False)
+
+    # Análise de picos
+    pico_espera = df.nlargest(3, 'tpesper')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tpesper']]
+    pico_permanencia = df.nlargest(3, 'tempo_permanencia')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tempo_permanencia']]
+
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -304,144 +257,68 @@ def gerar_insights_gerais(dados, filtros, metricas):
         st.markdown(formatar_card(
             "Desempenho",
             f"""
-            ✅ Dentro da meta: {dentro_meta:,} ({perc_dentro:.1f}%)
-            ❌ Fora da meta: {fora_meta:,} ({perc_fora:.1f}%)
+            ✅ Dentro da meta: {len(df[df['status_meta'] == 'Dentro']):,} ({(len(df[df['status_meta'] == 'Dentro'])/len(df)*100):.1f}%)
+            ❌ Fora da meta: {len(pontos_fora):,} ({(len(pontos_fora)/len(df)*100):.1f}%)
             """
         ), unsafe_allow_html=True)
 
-        # Verificar se há dias críticos antes de mostrar
-        if not dias_criticos.empty and len(dias_criticos) >= 3:
-            st.markdown(formatar_card(
-                "Pontos Críticos",
-                f"""
-                📅 Top 3 Dias:
-                • {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
-                • {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
-                • {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
-                """
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Pontos Críticos",
-                "Não há dados suficientes para análise de dias críticos."
-            ), unsafe_allow_html=True)
+        st.markdown(formatar_card(
+            "Pontos Críticos",
+            f"""
+            📅 Top 3 Dias:
+            • {dias_criticos.head(3).index[0].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[0]:,} atendimentos
+            • {dias_criticos.head(3).index[1].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[1]:,} atendimentos
+            • {dias_criticos.head(3).index[2].strftime('%d/%m/%Y')}: {dias_criticos.head(3).values[2]:,} atendimentos
+            """
+        ), unsafe_allow_html=True)
 
-        # Verificar se há clientes críticos antes de mostrar
-        if not clientes_criticos.empty and len(clientes_criticos) >= 3:
-            st.markdown(formatar_card(
-                "Principais Impactos",
-                f"""
-                👥 Top 3 Clientes:
-                • {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
-                • {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
-                • {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
-                """
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Principais Impactos",
-                "Não há dados suficientes para análise de clientes críticos."
-            ), unsafe_allow_html=True)
+        st.markdown(formatar_card(
+            "Principais Impactos",
+            f"""
+            👥 Top 3 Clientes:
+            • {clientes_criticos.head(3).index[0]}: {clientes_criticos.head(3).values[0]:,} atendimentos
+            • {clientes_criticos.head(3).index[1]}: {clientes_criticos.head(3).values[1]:,} atendimentos
+            • {clientes_criticos.head(3).index[2]}: {clientes_criticos.head(3).values[2]:,} atendimentos
+            """
+        ), unsafe_allow_html=True)
 
     with col3:
         st.subheader("⚠️ Análise de Picos")
-        # Análise de picos com verificação de dados
-        pico_espera = df.nlargest(3, 'tpesper')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tpesper']]
-        pico_permanencia = df.nlargest(3, 'tempo_permanencia')[['retirada', 'CLIENTE', 'OPERAÇÃO', 'tempo_permanencia']]
+        st.markdown(formatar_card(
+            "Maiores Tempos de Espera",
+            formatar_lista([
+                f"""
+                📍 {formatar_tempo(row['tpesper']/60)}
+                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
+                👥 {row['CLIENTE']}
+                🔧 {row['OPERAÇÃO']}
+                """
+                for _, row in pico_espera.iterrows()
+            ], "\n\n"),
+            estilo="warning"
+        ), unsafe_allow_html=True)
 
-        if not pico_espera.empty:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Espera",
-                formatar_lista([
-                    f"""
-                    📍 {formatar_tempo(row['tpesper']/60)}
-                    📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                    👥 {row['CLIENTE']}
-                    🔧 {row['OPERAÇÃO']}
-                    """
-                    for _, row in pico_espera.iterrows()
-                ], "\n\n"),
-                estilo="warning"
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Espera",
-                "Não há dados suficientes para análise de tempos de espera.",
-                estilo="warning"
-            ), unsafe_allow_html=True)
-
-        if not pico_permanencia.empty:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Permanência",
-                formatar_lista([
-                    f"""
-                    📍 {formatar_tempo(row['tempo_permanencia']/60)}
-                    📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
-                    👥 {row['CLIENTE']}
-                    🔧 {row['OPERAÇÃO']}
-                    """
-                    for _, row in pico_permanencia.iterrows()
-                ], "\n\n"),
-                estilo="warning"
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Permanência",
-                "Não há dados suficientes para análise de tempos de permanência.",
-                estilo="warning"
-            ), unsafe_allow_html=True)
+        st.markdown(formatar_card(
+            "Maiores Tempos de Permanência",
+            formatar_lista([
+                f"""
+                📍 {formatar_tempo(row['tempo_permanencia']/60)}
+                📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
+                👥 {row['CLIENTE']}
+                🔧 {row['OPERAÇÃO']}
+                """
+                for _, row in pico_permanencia.iterrows()
+            ], "\n\n"),
+            estilo="warning"
+        ), unsafe_allow_html=True)
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba Geral do dashboard"""
     st.header("Visão Geral das Operações")
     
     try:
-        # Validação inicial dos dados
-        if not dados or 'base' not in dados or dados['base'].empty:
-            st.warning("Dados não disponíveis ou vazios.")
-            return
-        
-        # Criar cópia dos dados para evitar modificações indesejadas
-        df = dados['base'].copy()
-        
-        # Inicializar máscara como True para todos os registros
-        mask = pd.Series(True, index=df.index)
-        
-        # Aplicar filtros individualmente
-        if 'periodo2' in filtros and filtros['periodo2']:
-            date_mask = (
-                (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            mask &= date_mask
-        
-        if filtros.get('cliente') and filtros['cliente'] != ['Todos']:
-            client_mask = df['CLIENTE'].isin(filtros['cliente'])
-            mask &= client_mask
-        
-        if filtros.get('operacao') and filtros['operacao'] != ['Todas']:
-            op_mask = df['OPERAÇÃO'].isin(filtros['operacao'])
-            mask &= op_mask
-        
-        if filtros.get('turno') and filtros['turno'] != ['Todos']:
-            turno_mask = df['retirada'].dt.hour.apply(
-                lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')
-            ).isin(filtros['turno'])
-            mask &= turno_mask
-        
-        # Aplicar máscara final
-        df_filtrado = df[mask].copy()
-        
-        # Continuar apenas se houver dados
-        if df_filtrado.empty:
-            st.warning("Não há dados disponíveis para os filtros selecionados.")
-            return
-            
-        # Criar dados filtrados e continuar com o processamento
-        dados_filtrados = {'base': df_filtrado}
-        
-        # Calcular métricas
-        metricas = calcular_metricas_gerais(dados_filtrados, filtros)
+        # Cálculo das métricas gerais
+        metricas = calcular_metricas_gerais(dados, filtros)
         
         # Layout das métricas em colunas
         col1, col2, col3, col4 = st.columns(4)
@@ -478,18 +355,18 @@ def mostrar_aba(dados, filtros):
         col_left, col_right = st.columns(2)
         
         with col_left:
-            fig_diario = criar_grafico_atendimentos_diarios(dados_filtrados, filtros)
+            fig_diario = criar_grafico_atendimentos_diarios(dados, filtros)
             st.plotly_chart(fig_diario, use_container_width=True)
         
         with col_right:
-            fig_clientes = criar_grafico_top_clientes(dados_filtrados, filtros)
+            fig_clientes = criar_grafico_top_clientes(dados, filtros)
             st.plotly_chart(fig_clientes, use_container_width=True)
         
         # Insights
         st.markdown("---")
         st.subheader("📈 Análise Detalhada")
         with st.expander("Ver análise completa", expanded=True):
-            gerar_insights_gerais(dados_filtrados, filtros, metricas)
+            gerar_insights_gerais(dados, filtros, metricas)
     
     except Exception as e:
         st.error("Erro ao gerar a aba Geral")

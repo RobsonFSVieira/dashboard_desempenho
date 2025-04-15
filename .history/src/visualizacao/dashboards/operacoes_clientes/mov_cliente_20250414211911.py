@@ -15,46 +15,14 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     """Calcula a movimentação de cada cliente no período especificado"""
     df = dados['base']
     
-    # Validação inicial dos dados
-    if df.empty:
-        st.warning("DataFrame está vazio")
-        return pd.DataFrame()
-    
-    # Identificar período disponível nos dados
-    data_mais_antiga = df['retirada'].dt.date.min()
-    data_mais_recente = df['retirada'].dt.date.max()
-    
-    # Validar se as datas estão dentro do período disponível
-    if (filtros[periodo]['inicio'] < data_mais_antiga or 
-        filtros[periodo]['fim'] > data_mais_recente):
-        st.error(f"""
-            ⚠️ Período selecionado fora do intervalo disponível!
-            
-            Período disponível na base de dados:
-            • De: {data_mais_antiga.strftime('%d/%m/%Y')}
-            • Até: {data_mais_recente.strftime('%d/%m/%Y')}
-            
-            Período selecionado:
-            • De: {filtros[periodo]['inicio'].strftime('%d/%m/%Y')}
-            • Até: {filtros[periodo]['fim'].strftime('%d/%m/%Y')}
-            
-            Por favor, selecione datas dentro do período disponível.
-        """)
-        return pd.DataFrame()
-    
     # Criar uma cópia do DataFrame para não modificar o original
     df_filtrado = df.copy()
     
-    # Converter datas para datetime se necessário
-    if not pd.api.types.is_datetime64_any_dtype(df_filtrado['retirada']):
-        df_filtrado['retirada'] = pd.to_datetime(df_filtrado['retirada'])
-    
     # Aplicar filtros de data
-    mask_data = (
+    df_filtrado = df_filtrado[
         (df_filtrado['retirada'].dt.date >= filtros[periodo]['inicio']) &
         (df_filtrado['retirada'].dt.date <= filtros[periodo]['fim'])
-    )
-    df_filtrado = df_filtrado[mask_data]
+    ]
     
     # Aplicar filtros adicionais
     if filtros['operacao'] != ['Todas']:
@@ -73,10 +41,10 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     if filtros['cliente'] != ['Todos']:
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
     
-    # Se não houver dados após os filtros
+    # Debug apenas se não houver dados
     if len(df_filtrado) == 0:
-        st.warning("Nenhum registro encontrado com os filtros selecionados")
-        return pd.DataFrame()
+        st.warning(f"Nenhum registro encontrado para o período {periodo} com os filtros selecionados")
+        return pd.DataFrame()  # Retorna DataFrame vazio
     
     # Agrupar por cliente
     movimentacao = df_filtrado.groupby('CLIENTE')['id'].count().reset_index()

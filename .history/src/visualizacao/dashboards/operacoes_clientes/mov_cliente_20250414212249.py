@@ -19,28 +19,16 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     if df.empty:
         st.warning("DataFrame está vazio")
         return pd.DataFrame()
-    
-    # Identificar período disponível nos dados
-    data_mais_antiga = df['retirada'].dt.date.min()
-    data_mais_recente = df['retirada'].dt.date.max()
-    
-    # Validar se as datas estão dentro do período disponível
-    if (filtros[periodo]['inicio'] < data_mais_antiga or 
-        filtros[periodo]['fim'] > data_mais_recente):
-        st.error(f"""
-            ⚠️ Período selecionado fora do intervalo disponível!
-            
-            Período disponível na base de dados:
-            • De: {data_mais_antiga.strftime('%d/%m/%Y')}
-            • Até: {data_mais_recente.strftime('%d/%m/%Y')}
-            
-            Período selecionado:
-            • De: {filtros[periodo]['inicio'].strftime('%d/%m/%Y')}
-            • Até: {filtros[periodo]['fim'].strftime('%d/%m/%Y')}
-            
-            Por favor, selecione datas dentro do período disponível.
-        """)
-        return pd.DataFrame()
+        
+    # Debug info em um expander
+    with st.expander("🔍 Debug Info", expanded=False):
+        st.write("Informações do período:")
+        st.write({
+            "Período": periodo,
+            "Data início": filtros[periodo]['inicio'],
+            "Data fim": filtros[periodo]['fim'],
+            "Total registros antes do filtro": len(df)
+        })
     
     # Criar uma cópia do DataFrame para não modificar o original
     df_filtrado = df.copy()
@@ -56,9 +44,15 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
     )
     df_filtrado = df_filtrado[mask_data]
     
+    # Atualizar debug info
+    with st.expander("🔍 Debug Info", expanded=False):
+        st.write(f"Registros após filtro de data: {len(df_filtrado)}")
+    
     # Aplicar filtros adicionais
     if filtros['operacao'] != ['Todas']:
         df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
+        with st.expander("🔍 Debug Info", expanded=False):
+            st.write(f"Registros após filtro de operação: {len(df_filtrado)}")
         
     if filtros['turno'] != ['Todos']:
         def get_turno(hour):
@@ -69,13 +63,24 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
             else:
                 return 'TURNO C'
         df_filtrado = df_filtrado[df_filtrado['retirada'].dt.hour.apply(get_turno).isin(filtros['turno'])]
+        with st.expander("🔍 Debug Info", expanded=False):
+            st.write(f"Registros após filtro de turno: {len(df_filtrado)}")
         
     if filtros['cliente'] != ['Todos']:
         df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
+        with st.expander("🔍 Debug Info", expanded=False):
+            st.write(f"Registros após filtro de cliente: {len(df_filtrado)}")
     
-    # Se não houver dados após os filtros
+    # Debug apenas se não houver dados
     if len(df_filtrado) == 0:
-        st.warning("Nenhum registro encontrado com os filtros selecionados")
+        st.warning(f"""
+            Nenhum registro encontrado para o período {periodo}:
+            - Data início: {filtros[periodo]['inicio']}
+            - Data fim: {filtros[periodo]['fim']}
+            - Operações: {filtros['operacao']}
+            - Turnos: {filtros['turno']}
+            - Clientes: {filtros['cliente']}
+        """)
         return pd.DataFrame()
     
     # Agrupar por cliente

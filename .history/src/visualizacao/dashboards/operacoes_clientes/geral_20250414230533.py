@@ -494,3 +494,7 @@ def mostrar_aba(dados, filtros):
     except Exception as e:
         st.error("Erro ao gerar a aba Geral")
         st.exception(e)
+        
+        # Debug adicional
+        st.sidebar.error("Detalhes do erro:")
+        st.sidebar.exception(e)

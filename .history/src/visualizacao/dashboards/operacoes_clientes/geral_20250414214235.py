@@ -396,51 +396,35 @@ def mostrar_aba(dados, filtros):
     st.header("Visão Geral das Operações")
     
     try:
-        # Validação inicial dos dados
-        if not dados or 'base' not in dados or dados['base'].empty:
-            st.warning("Dados não disponíveis ou vazios.")
+        # Validar dados antes de prosseguir
+        if dados is None or 'base' not in dados or dados['base'].empty:
+            st.warning("Não há dados disponíveis para análise.")
             return
+            
+        df = dados['base']
         
-        # Criar cópia dos dados para evitar modificações indesejadas
-        df = dados['base'].copy()
+        # Aplicar filtros de data
+        mask = (
+            (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+            (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+        )
         
-        # Inicializar máscara como True para todos os registros
-        mask = pd.Series(True, index=df.index)
+        # Aplicar filtros adicionais
+        if filtros['cliente'] != ['Todos']:
+            mask &= df['CLIENTE'].isin(filtros['cliente'])
+        if filtros['operacao'] != ['Todas']:
+            mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
+        if filtros['turno'] != ['Todos']:
+            mask &= df['retirada'].dt.hour.apply(lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')).isin(filtros['turno'])
         
-        # Aplicar filtros individualmente
-        if 'periodo2' in filtros and filtros['periodo2']:
-            date_mask = (
-                (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            mask &= date_mask
+        df_filtrado = df[mask]
         
-        if filtros.get('cliente') and filtros['cliente'] != ['Todos']:
-            client_mask = df['CLIENTE'].isin(filtros['cliente'])
-            mask &= client_mask
-        
-        if filtros.get('operacao') and filtros['operacao'] != ['Todas']:
-            op_mask = df['OPERAÇÃO'].isin(filtros['operacao'])
-            mask &= op_mask
-        
-        if filtros.get('turno') and filtros['turno'] != ['Todos']:
-            turno_mask = df['retirada'].dt.hour.apply(
-                lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')
-            ).isin(filtros['turno'])
-            mask &= turno_mask
-        
-        # Aplicar máscara final
-        df_filtrado = df[mask].copy()
-        
-        # Continuar apenas se houver dados
         if df_filtrado.empty:
             st.warning("Não há dados disponíveis para os filtros selecionados.")
             return
-            
-        # Criar dados filtrados e continuar com o processamento
-        dados_filtrados = {'base': df_filtrado}
         
-        # Calcular métricas
+        # Cálculo das métricas gerais com os dados filtrados
+        dados_filtrados = {'base': df_filtrado}
         metricas = calcular_metricas_gerais(dados_filtrados, filtros)
         
         # Layout das métricas em colunas

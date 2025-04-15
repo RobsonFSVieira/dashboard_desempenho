@@ -404,33 +404,64 @@ def mostrar_aba(dados, filtros):
         # Criar cópia dos dados para evitar modificações indesejadas
         df = dados['base'].copy()
         
+        # Debug dos dados iniciais
+        with st.expander("🔍 Debug: Dados Iniciais", expanded=False):
+            st.write("Amostra dos dados originais:")
+            st.write(df.head())
+            st.write(f"Total de registros: {len(df)}")
+            st.write("Período disponível:")
+            st.write(f"De: {df['retirada'].dt.date.min()}")
+            st.write(f"Até: {df['retirada'].dt.date.max()}")
+            st.write("\nFiltros recebidos:", filtros)
+        
         # Inicializar máscara como True para todos os registros
         mask = pd.Series(True, index=df.index)
         
-        # Aplicar filtros individualmente
+        # Aplicar filtros individualmente com debug
         if 'periodo2' in filtros and filtros['periodo2']:
             date_mask = (
                 (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
                 (df['retirada'].dt.date <= filtros['periodo2']['fim'])
             )
             mask &= date_mask
+            st.sidebar.write(f"Registros após filtro de data: {mask.sum()}")
         
         if filtros.get('cliente') and filtros['cliente'] != ['Todos']:
             client_mask = df['CLIENTE'].isin(filtros['cliente'])
             mask &= client_mask
+            st.sidebar.write(f"Registros após filtro de cliente: {mask.sum()}")
         
         if filtros.get('operacao') and filtros['operacao'] != ['Todas']:
             op_mask = df['OPERAÇÃO'].isin(filtros['operacao'])
             mask &= op_mask
+            st.sidebar.write(f"Registros após filtro de operação: {mask.sum()}")
         
         if filtros.get('turno') and filtros['turno'] != ['Todos']:
             turno_mask = df['retirada'].dt.hour.apply(
                 lambda x: 'A' if 7 <= x < 15 else ('B' if 15 <= x < 23 else 'C')
             ).isin(filtros['turno'])
             mask &= turno_mask
+            st.sidebar.write(f"Registros após filtro de turno: {mask.sum()}")
         
         # Aplicar máscara final
         df_filtrado = df[mask].copy()
+        
+        # Debug dos dados filtrados
+        with st.expander("🔍 Debug: Dados Filtrados", expanded=False):
+            st.write(f"Total de registros após filtros: {len(df_filtrado)}")
+            if not df_filtrado.empty:
+                st.write("Amostra dos dados filtrados:")
+                st.write(df_filtrado.head())
+                st.write("\nPeríodo após filtros:")
+                st.write(f"De: {df_filtrado['retirada'].dt.date.min()}")
+                st.write(f"Até: {df_filtrado['retirada'].dt.date.max()}")
+            else:
+                st.warning("Não há dados após aplicação dos filtros")
+                st.write("\nValores únicos por coluna filtrada:")
+                st.write("Clientes:", df['CLIENTE'].unique())
+                st.write("Operações:", df['OPERAÇÃO'].unique())
+                st.write("Range de datas:", df['retirada'].dt.date.min(), "a", df['retirada'].dt.date.max())
+                return
         
         # Continuar apenas se houver dados
         if df_filtrado.empty:
@@ -440,8 +471,15 @@ def mostrar_aba(dados, filtros):
         # Criar dados filtrados e continuar com o processamento
         dados_filtrados = {'base': df_filtrado}
         
-        # Calcular métricas
+        # Criar dados filtrados e calcular métricas
         metricas = calcular_metricas_gerais(dados_filtrados, filtros)
+        
+        # Mostrar alguns dados para debug
+        with st.expander("🔍 Debug: Amostra dos Dados Filtrados"):
+            st.write("Primeiros registros após filtros:")
+            st.write(df_filtrado.head())
+            st.write("\nMétricas calculadas:")
+            st.write(metricas)
         
         # Layout das métricas em colunas
         col1, col2, col3, col4 = st.columns(4)
@@ -494,3 +532,7 @@ def mostrar_aba(dados, filtros):
     except Exception as e:
         st.error("Erro ao gerar a aba Geral")
         st.exception(e)
+        
+        # Debug adicional
+        st.sidebar.error("Detalhes do erro:")
+        st.sidebar.exception(e)

@@ -57,6 +57,11 @@ def validar_colunas(df):
         'tpesper': 'tpesper'
     }
     
+    # Mostrar colunas para debug
+    with st.sidebar.expander("Debug"):
+        st.write("Colunas no arquivo:", df.columns.tolist())
+        st.write("Colunas após merge com códigos serão adicionadas: CLIENTE, OPERAÇÃO")
+    
     # Renomear colunas existentes
     for col_atual in df.columns:
         col_lower = col_atual.lower().strip()
@@ -86,6 +91,9 @@ def validar_colunas(df):
 def carregar_dados():
     """Carrega e processa os arquivos necessários"""
     try:
+        # Debug info
+        st.sidebar.markdown("### 🔄 Status do Carregamento")
+        
         arquivo_base = st.sidebar.file_uploader(
             "Base de Dados (base.xlsx)", 
             type="xlsx",
@@ -108,22 +116,26 @@ def carregar_dados():
             return None
             
         with st.spinner('Carregando dados...'):
+            # Carregar arquivos com validação
             try:
                 df_base = pd.read_excel(arquivo_base)
+                st.sidebar.success("✅ Base carregada")
             except Exception as e:
-                st.error(f"❌ Erro ao carregar base: {str(e)}")
+                st.sidebar.error(f"❌ Erro ao carregar base: {str(e)}")
                 return None
 
             try:
                 df_codigo = pd.read_excel(arquivo_codigo)
+                st.sidebar.success("✅ Códigos carregados")
             except Exception as e:
-                st.error(f"❌ Erro ao carregar códigos: {str(e)}")
+                st.sidebar.error(f"❌ Erro ao carregar códigos: {str(e)}")
                 return None
 
             try:
                 df_medias = pd.read_excel(arquivo_medias, sheet_name="DADOS")
+                st.sidebar.success("✅ Médias carregadas")
             except Exception as e:
-                st.error(f"❌ Erro ao carregar médias: {str(e)}")
+                st.sidebar.error(f"❌ Erro ao carregar médias: {str(e)}")
                 return None
             
             # Validar e padronizar colunas
@@ -138,16 +150,24 @@ def carregar_dados():
             # Merge com códigos
             df_final = pd.merge(
                 df_base,
-                df_codigo[['prefixo', 'CLIENTE', 'OPERAÇÃO']],
+                df_codigo[['prefixo', 'CLIENTE', 'OPERAÇÃO']],  # Especificar colunas
                 on='prefixo',
                 how='left'
             )
             
-            # Verificar merge silenciosamente
-            has_missing = df_final['CLIENTE'].isna().any() or df_final['OPERAÇÃO'].isna().any()
+            # Verificar merge
+            if df_final['CLIENTE'].isna().any() or df_final['OPERAÇÃO'].isna().any():
+                st.sidebar.warning("⚠️ Alguns registros não têm correspondência nos códigos")
             
             # Calcular tempo de permanência
             df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+            
+            st.sidebar.success("✅ Processamento concluído")
+            
+            # Debug info
+            st.sidebar.markdown("### 📊 Info dos Dados")
+            st.sidebar.write(f"Registros carregados: {len(df_final)}")
+            st.sidebar.write(f"Período: {df_final['retirada'].dt.date.min()} a {df_final['retirada'].dt.date.max()}")
             
             return {
                 'base': df_final,
@@ -156,5 +176,5 @@ def carregar_dados():
             }
             
     except Exception as e:
-        st.error(f"❌ Erro no carregamento: {str(e)}")
+        st.sidebar.error(f"❌ Erro no carregamento: {str(e)}")
         return None

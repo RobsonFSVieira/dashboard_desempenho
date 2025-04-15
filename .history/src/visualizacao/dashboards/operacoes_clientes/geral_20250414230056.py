@@ -442,7 +442,7 @@ def mostrar_aba(dados, filtros):
         
         # Calcular métricas
         metricas = calcular_metricas_gerais(dados_filtrados, filtros)
-        
+
         # Layout das métricas em colunas
         col1, col2, col3, col4 = st.columns(4)
         
@@ -494,3 +494,7 @@ def mostrar_aba(dados, filtros):
     except Exception as e:
         st.error("Erro ao gerar a aba Geral")
         st.exception(e)
+        
+        # Debug adicional
+        st.sidebar.error("Detalhes do erro:")
+        st.sidebar.exception(e)

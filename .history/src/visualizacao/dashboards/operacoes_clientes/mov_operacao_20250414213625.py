@@ -12,12 +12,12 @@ def formatar_data(data):
     return data
 
 def calcular_movimentacao_por_periodo(dados, filtros, periodo):
-    """Calcula a movimentação de cada cliente no período especificado"""
+    """Calcula a movimentação de cada operação no período especificado"""
     df = dados['base']
     
     # Validação inicial dos dados
     if df.empty:
-        st.warning("DataFrame está vazio")
+        st.warning("Base de dados está vazia")
         return pd.DataFrame()
     
     # Identificar período disponível nos dados
@@ -42,23 +42,16 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
         """)
         return pd.DataFrame()
     
-    # Criar uma cópia do DataFrame para não modificar o original
-    df_filtrado = df.copy()
-    
-    # Converter datas para datetime se necessário
-    if not pd.api.types.is_datetime64_any_dtype(df_filtrado['retirada']):
-        df_filtrado['retirada'] = pd.to_datetime(df_filtrado['retirada'])
-    
     # Aplicar filtros de data
-    mask_data = (
-        (df_filtrado['retirada'].dt.date >= filtros[periodo]['inicio']) &
-        (df_filtrado['retirada'].dt.date <= filtros[periodo]['fim'])
+    mask = (
+        (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
+        (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
-    df_filtrado = df_filtrado[mask_data]
+    df_data = df[mask]
     
     # Aplicar filtros adicionais
-    if filtros['operacao'] != ['Todas']:
-        df_filtrado = df_filtrado[df_filtrado['OPERAÇÃO'].isin(filtros['operacao'])]
+    if filtros['cliente'] != ['Todos']:
+        mask &= df['CLIENTE'].isin(filtros['cliente'])
         
     if filtros['turno'] != ['Todos']:
         def get_turno(hour):
@@ -68,19 +61,20 @@ def calcular_movimentacao_por_periodo(dados, filtros, periodo):
                 return 'TURNO B'
             else:
                 return 'TURNO C'
-        df_filtrado = df_filtrado[df_filtrado['retirada'].dt.hour.apply(get_turno).isin(filtros['turno'])]
+        mask &= df['retirada'].dt.hour.apply(get_turno).isin(filtros['turno'])
         
-    if filtros['cliente'] != ['Todos']:
-        df_filtrado = df_filtrado[df_filtrado['CLIENTE'].isin(filtros['cliente'])]
+    if filtros['operacao'] != ['Todas']:
+        mask &= df['OPERAÇÃO'].isin(filtros['operacao'])
     
-    # Se não houver dados após os filtros
+    df_filtrado = df[mask]
+    
+    # Debug apenas se não houver dados
     if len(df_filtrado) == 0:
-        st.warning("Nenhum registro encontrado com os filtros selecionados")
-        return pd.DataFrame()
+        st.error("Nenhum registro encontrado com os filtros selecionados")
     
-    # Agrupar por cliente
-    movimentacao = df_filtrado.groupby('CLIENTE')['id'].count().reset_index()
-    movimentacao.columns = ['cliente', 'quantidade']
+    # Agrupar por operação
+    movimentacao = df_filtrado.groupby('OPERAÇÃO')['id'].count().reset_index()
+    movimentacao.columns = ['operacao', 'quantidade']
     
     return movimentacao
 
@@ -115,7 +109,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         df_comp = pd.merge(
             dados_p1, 
             dados_p2, 
-            on='cliente', 
+            on='operacao',  # Usando operacao ao invés de cliente
             suffixes=('_p1', '_p2')
         )
         
@@ -124,8 +118,8 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / 
                               df_comp['quantidade_p1'] * 100)
         
-        # Ordena por total decrescente (maiores volumes no topo)
-        df_comp = df_comp.sort_values('total', ascending=True)  # ascending=True pois o eixo y é invertido
+        # Ordena por total crescente (menores no topo)
+        df_comp = df_comp.sort_values('total', ascending=True)
         
         # Obtém cores do tema atual
         cores_tema = obter_cores_tema()
@@ -145,14 +139,14 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         def calcular_tamanho_fonte(valor, tipo='barra'):
             # Define tamanhos fixos para melhor visibilidade
             if tipo == 'barra':
-                return 16  # Tamanho fixo para todas as barras
+                return 16  # Aumentado para 16
             else:  # tipo == 'porcentagem'
-                return 14  # Tamanho fixo para as porcentagens
+                return 14
 
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
             name=legenda_p1,
-            y=df_comp['cliente'],
+            y=df_comp['operacao'],
             x=df_comp['quantidade_p1'],
             orientation='h',
             text=df_comp['quantidade_p1'],
@@ -161,7 +155,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             textfont={
                 'size': df_comp['quantidade_p1'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
                 'color': '#ffffff',
-                'family': 'Arial Black'
+                'family': 'Arial Black'  # Adiciona fonte em negrito
             },
             opacity=0.85
         ))
@@ -169,7 +163,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Adiciona barras para período 2
         fig.add_trace(go.Bar(
             name=legenda_p2,
-            y=df_comp['cliente'],
+            y=df_comp['operacao'],
             x=df_comp['quantidade_p2'],
             orientation='h',
             text=df_comp['quantidade_p2'],
@@ -178,20 +172,18 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             textfont={
                 'size': df_comp['quantidade_p2'].apply(lambda x: calcular_tamanho_fonte(x, 'barra')),
                 'color': '#000000',
-                'family': 'Arial Black'
+                'family': 'Arial Black'  # Adiciona fonte em negrito
             },
             opacity=0.85
         ))
 
-        # Calcula a posição total para as anotações de variação
-        df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
-        
         # Adiciona anotações de variação percentual
+        df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         for i, row in df_comp.iterrows():
             cor = cores_tema['sucesso'] if row['variacao'] >= 0 else cores_tema['erro']
             
             fig.add_annotation(
-                y=row['cliente'],
+                y=row['operacao'],
                 x=row['posicao_total'],
                 text=f"{row['variacao']:+.1f}%",
                 showarrow=False,
@@ -204,13 +196,13 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Atualiza layout
         fig.update_layout(
             title={
-                'text': 'Comparativo de Movimentação por Cliente',
+                'text': 'Comparativo de Movimentação por Operação',  # Alterado título
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
             barmode='stack',
             bargap=0.15,
             bargroupgap=0.1,
-            height=max(600, len(df_comp) * 45),  # Aumentado altura base e multiplicador
+            height=max(600, len(df_comp) * 45),
             font={'size': 12, 'color': cores_tema['texto']},
             showlegend=True,
             legend={
@@ -223,12 +215,12 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'traceorder': 'normal',
                 'itemsizing': 'constant'
             },
-            margin=dict(l=20, r=160, t=80, b=40),  # Aumentado margens right, top e bottom
+            margin=dict(l=20, r=160, t=80, b=40),
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor=cores_tema['fundo']
         )
         
-        # Atualiza eixos com cores mais contrastantes
+        # Atualiza eixos
         fig.update_xaxes(
             title='Quantidade de Atendimentos',
             title_font={'color': cores_tema['texto']},
@@ -241,7 +233,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         )
         
         fig.update_yaxes(
-            title='Cliente',
+            title='Operação',  # Alterado título do eixo
             title_font={'color': cores_tema['texto']},
             tickfont={'color': cores_tema['texto']},
             gridcolor=cores_tema['grid'],
@@ -256,77 +248,76 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         st.error(f"Erro ao criar gráfico: {str(e)}")
         return None
 
-def gerar_insights_cliente(mov_p1, mov_p2):
-    """Gera insights sobre a movimentação dos clientes"""
+def gerar_insights_operacao(mov_p1, mov_p2):
+    """Gera insights sobre a movimentação das operações"""
     # Merge dos dados
     df_comp = pd.merge(
         mov_p1, mov_p2,
-        on='cliente',
+        on='operacao',
         suffixes=('_p1', '_p2')
     )
     df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / df_comp['quantidade_p1'] * 100)
     df_comp['total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
 
-    # Cálculos principais
+    # Insights
     total_p1 = df_comp['quantidade_p1'].sum()
     total_p2 = df_comp['quantidade_p2'].sum()
     variacao_total = ((total_p2 - total_p1) / total_p1 * 100)
     
-    # Identificar clientes notáveis
+    # Operações com maior crescimento e queda
     maior_crescimento = df_comp.nlargest(1, 'variacao').iloc[0]
     maior_queda = df_comp.nsmallest(1, 'variacao').iloc[0]
-    maior_volume = df_comp.nlargest(1, 'total').iloc[0]
     
-    # Análise de concentração
-    df_comp['perc_total'] = (df_comp['total'] / df_comp['total'].sum()) * 100
-    top_clientes = df_comp.nlargest(3, 'total')
-    concentracao_top3 = top_clientes['perc_total'].sum()
+    # Operações mais movimentadas
+    mais_movimentada = df_comp.nlargest(1, 'total').iloc[0]
 
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("📊 Visão Geral")
         st.markdown(f"""
-        - Total de atendimentos (P1): **{total_p1:,}**
-        - Total de atendimentos (P2): **{total_p2:,}**
-        - Variação geral: **{variacao_total:,.1f}%**
+        - Volume total no período 1: **{total_p1:,}** atendimentos
+        - Volume total no período 2: **{total_p2:,}** atendimentos
+        - Variação total: **{variacao_total:,.1f}%**
         """)
         
-        st.subheader("👥 Concentração de Clientes")
+        st.subheader("🔝 Destaques")
         st.markdown(f"""
-        - Top 3 clientes representam **{concentracao_top3:.1f}%** do volume total
-        - Cliente mais volumoso: **{maior_volume['cliente']}**
-          ({maior_volume['total']:,} atendimentos)
+        - Operação mais movimentada: **{mais_movimentada['operacao']}** 
+          (total de {mais_movimentada['total']:,} atendimentos)
         """)
 
     with col2:
-        st.subheader("📈 Variações Significativas")
+        st.subheader("📈 Maiores Variações")
         st.markdown(f"""
-        - Maior crescimento: **{maior_crescimento['cliente']}**
+        - Maior crescimento: **{maior_crescimento['operacao']}** 
           ({maior_crescimento['variacao']:,.1f}%)
-        - Maior redução: **{maior_queda['cliente']}**
+        - Maior queda: **{maior_queda['operacao']}** 
           ({maior_queda['variacao']:,.1f}%)
         """)
         
-        st.subheader("💡 Análise e Recomendações")
-        if concentracao_top3 > 50:
-            st.markdown("""
-            - **Atenção**: Alta concentração nos principais clientes
-            - Considerar estratégias de diversificação da carteira
-            """)
+        # Recomendações baseadas nos dados
+        st.subheader("💡 Recomendações")
         if maior_queda['variacao'] < -20:
             st.markdown(f"""
-            - Investigar redução significativa do cliente **{maior_queda['cliente']}**
-            - Agendar reunião de acompanhamento
+            - Investigar a queda significativa em **{maior_queda['operacao']}**
+            - Verificar possíveis causas: demanda, recursos, processos
+            """)
+        if maior_crescimento['variacao'] > 50:
+            st.markdown(f"""
+            - Analisar o sucesso de **{maior_crescimento['operacao']}**
+            - Considerar aplicar práticas bem-sucedidas em outras operações
             """)
 
 def mostrar_aba(dados, filtros):
-    """Mostra a aba de Movimentação por Cliente"""
-    st.header("Movimentação por Cliente")
+    """Mostra a aba de Movimentação por Operação"""
+    st.header("Movimentação por Operação")
     
     try:
+        # Adiciona um key único que muda quando o tema muda
         st.session_state['tema_atual'] = detectar_tema()
         
+        # Calcula movimentação para os dois períodos
         mov_p1 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo1')
         mov_p2 = calcular_movimentacao_por_periodo(dados, filtros, 'periodo2')
         
@@ -334,17 +325,18 @@ def mostrar_aba(dados, filtros):
             st.warning("Não há dados para exibir no período selecionado.")
             return
         
+        # Cria e exibe o gráfico comparativo
         fig = criar_grafico_comparativo(mov_p1, mov_p2, filtros)
         if fig:
             st.plotly_chart(
                 fig, 
                 use_container_width=True, 
-                key=f"grafico_{st.session_state['tema_atual']}"
+                key=f"grafico_operacao_{st.session_state['tema_atual']}"
             )
             
         # Adiciona insights abaixo do gráfico
         st.markdown("---")
-        gerar_insights_cliente(mov_p1, mov_p2)
+        gerar_insights_operacao(mov_p1, mov_p2)
     
     except Exception as e:
         st.error(f"Erro ao mostrar aba: {str(e)}")
