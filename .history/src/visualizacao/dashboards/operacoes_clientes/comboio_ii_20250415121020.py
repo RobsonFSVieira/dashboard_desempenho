@@ -188,10 +188,10 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
     eficiencia = (total_atendidas / total_retiradas * 100) if total_retiradas > 0 else 0
     hora_critica = metricas.loc[metricas['pendentes'].idxmax()]
     
-    # Análise por períodos (ajustado para novos horários)
-    manha = metricas.loc[7:14, 'retiradas'].mean()
-    tarde = metricas.loc[15:22, 'retiradas'].mean()
-    noite = pd.concat([metricas.loc[23:23, 'retiradas'], metricas.loc[0:7, 'retiradas']]).mean()
+    # Análise por períodos
+    manha = metricas.loc[6:11, 'retiradas'].mean()
+    tarde = metricas.loc[12:17, 'retiradas'].mean()
+    noite = metricas.loc[18:23, 'retiradas'].mean()
     
     # Obter picos do período
     hora_pico_retiradas = metricas.loc[metricas['retiradas'].idxmax()]
@@ -205,18 +205,18 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader(f"📊 Visão Geral em {data_selecionada.strftime('%d/%m/%Y')}")
+        st.subheader("📊 Visão Geral")
         st.markdown(f"""
         - Senhas retiradas: **{total_retiradas:,}**
         - Senhas atendidas: **{total_atendidas:,}**
         - Eficiência: **{eficiencia:.1f}%**
         """)
         
-        st.subheader("⏱️ Média Retiradas por Hora")
+        st.subheader("⏱️ Distribuição Horária")
         st.markdown(f"""
-        - Média manhã (7h-14h): **{int(manha):,}** senhas/hora
-        - Média tarde (15h-22h): **{int(tarde):,}** senhas/hora
-        - Média noite (23h-07h): **{int(noite):,}** senhas/hora
+        - Média manhã (6h-11h): **{int(manha):,}** senhas/hora
+        - Média tarde (12h-17h): **{int(tarde):,}** senhas/hora
+        - Média noite (18h-23h): **{int(noite):,}** senhas/hora
         """)
 
     with col2:

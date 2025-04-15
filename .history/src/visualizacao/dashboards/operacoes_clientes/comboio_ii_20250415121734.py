@@ -212,7 +212,7 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
         - Eficiência: **{eficiencia:.1f}%**
         """)
         
-        st.subheader("⏱️ Média Retiradas por Hora")
+        st.subheader("⏱️ Distribuição Horária")
         st.markdown(f"""
         - Média manhã (7h-14h): **{int(manha):,}** senhas/hora
         - Média tarde (15h-22h): **{int(tarde):,}** senhas/hora

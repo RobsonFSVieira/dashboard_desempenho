@@ -180,7 +180,7 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     
     return fig
 
-def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=None, operacao=None):
+def gerar_insights_comboio(metricas):
     """Gera insights sobre o padrão de chegada em comboio"""
     # Cálculos principais
     total_retiradas = metricas['retiradas'].sum()
@@ -188,39 +188,36 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
     eficiencia = (total_atendidas / total_retiradas * 100) if total_retiradas > 0 else 0
     hora_critica = metricas.loc[metricas['pendentes'].idxmax()]
     
-    # Análise por períodos (ajustado para novos horários)
-    manha = metricas.loc[7:14, 'retiradas'].mean()
-    tarde = metricas.loc[15:22, 'retiradas'].mean()
-    noite = pd.concat([metricas.loc[23:23, 'retiradas'], metricas.loc[0:7, 'retiradas']]).mean()
+    # Análise por períodos
+    manha = metricas.loc[6:11, 'retiradas'].mean()
+    tarde = metricas.loc[12:17, 'retiradas'].mean()
+    noite = metricas.loc[18:23, 'retiradas'].mean()
     
     # Obter picos do período
     hora_pico_retiradas = metricas.loc[metricas['retiradas'].idxmax()]
     hora_pico_pendentes = metricas.loc[metricas['pendentes'].idxmax()]
     hora_pico_atendidas = metricas.loc[metricas['atendidas'].idxmax()]
     
-    # Criar ranking dos 7 maiores picos
-    top_7_picos = metricas.nlargest(7, 'retiradas')
-    
     # Exibição dos insights
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader(f"📊 Visão Geral em {data_selecionada.strftime('%d/%m/%Y')}")
+        st.subheader("📊 Visão Geral")
         st.markdown(f"""
         - Senhas retiradas: **{total_retiradas:,}**
         - Senhas atendidas: **{total_atendidas:,}**
         - Eficiência: **{eficiencia:.1f}%**
         """)
         
-        st.subheader("⏱️ Média Retiradas por Hora")
+        st.subheader("⏱️ Distribuição Horária")
         st.markdown(f"""
-        - Média manhã (7h-14h): **{int(manha):,}** senhas/hora
-        - Média tarde (15h-22h): **{int(tarde):,}** senhas/hora
-        - Média noite (23h-07h): **{int(noite):,}** senhas/hora
+        - Média manhã (6h-11h): **{int(manha):,}** senhas/hora
+        - Média tarde (12h-17h): **{int(tarde):,}** senhas/hora
+        - Média noite (18h-23h): **{int(noite):,}** senhas/hora
         """)
 
     with col2:
-        st.subheader("📈 Picos")
+        st.subheader("⚠️ Picos")
         st.markdown(f"""
         - Pico de retiradas: **{int(hora_pico_retiradas['retiradas']):,}** às **{int(hora_pico_retiradas['hora']):02d}:00h**
         - Pico de pendências: **{int(hora_pico_pendentes['pendentes']):,}** às **{int(hora_pico_pendentes['hora']):02d}:00h**
@@ -236,45 +233,6 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
         - Avaliar distribuição dos atendimentos
         - Implementar sistema de agendamento
         """)
-    
-    # Nova seção de Pontos Críticos
-    st.markdown("---")
-    st.subheader("⚠️ Pontos Críticos")
-    
-    # Exibir ranking dos 7 maiores picos
-    st.markdown("#### Ranking dos Maiores Picos de Retiradas")
-    for idx, pico in enumerate(top_7_picos.itertuples(), 1):
-        info_adicional = f"- {data_selecionada.strftime('%d/%m/%Y')}"
-        if cliente:
-            info_adicional += f" - {cliente}"
-        if operacao:
-            info_adicional += f" - {operacao}"
-            
-        st.markdown(f"**{idx}º** - {int(pico.retiradas):,} senhas às **{int(pico.hora):02d}:00h** {info_adicional}")
-    
-    # Criar tabela de faseamento
-    st.markdown("#### Timeline dos Picos")
-    
-    # Formatar dados para a tabela
-    tabela_picos = pd.DataFrame({
-        'Horário': [f"{int(hora):02d}:00h" for hora in top_7_picos['hora']],
-        'Retiradas': top_7_picos['retiradas'].astype(int),
-        'Atendidas': top_7_picos['atendidas'].astype(int),
-        'Pendentes': top_7_picos['pendentes'].astype(int)
-    }).reset_index(drop=True)
-    
-    # Estilizar e exibir tabela
-    st.dataframe(
-        tabela_picos,
-        column_config={
-            'Horário': st.column_config.TextColumn('Horário', width=100),
-            'Retiradas': st.column_config.NumberColumn('Retiradas', format="%d", width=100),
-            'Atendidas': st.column_config.NumberColumn('Atendidas', format="%d", width=100),
-            'Pendentes': st.column_config.NumberColumn('Pendentes', format="%d", width=100)
-        },
-        hide_index=True,
-        use_container_width=True
-    )
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de análise detalhada de chegada em comboio"""
@@ -363,16 +321,14 @@ def mostrar_aba(dados, filtros):
             metricas = calcular_metricas_hora(dados, filtros, data_especifica=data_especifica)
             fig = criar_grafico_comboio(metricas)
         
-        # Exibir gráfico primeiro
+        # Exibir gráfico
         st.plotly_chart(fig, use_container_width=True)
         
-        # Insights depois
+        # Insights
         st.markdown("---")
         st.subheader("📈 Análise Detalhada")
         with st.expander("Ver análise completa", expanded=True):
-            gerar_insights_comboio(metricas, dados, data_especifica, 
-                                 cliente_selecionado if tipo_analise == "Por Cliente" else None,
-                                 operacao_selecionada if tipo_analise == "Por Operação" else None)
+            gerar_insights_comboio(metricas)
     
     except Exception as e:
         st.error("Erro ao gerar a aba de Análise de Chegada em Comboio II")
