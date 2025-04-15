@@ -95,7 +95,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             with tabs[3]:
                 st.info("🚧 Aba em desenvolvimento - Evolução Individual")
                 
-
+>>>>>>> 2a144ac6935889ab8c6f68ecbe6140638ea6fef0
     except Exception as e:
         st.error("Erro crítico ao gerar o dashboard")
         with st.expander("Detalhes do erro"):
