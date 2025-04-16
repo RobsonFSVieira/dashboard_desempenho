@@ -217,11 +217,11 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     fig.add_annotation(
         text="⚠️ As senhas pendentes formam o 'efeito bola de neve' - elas acumulam,<br>somando com as senhas retiradas do horário vigente",
         xref="paper", yref="paper",
-        x=1.02,  # Mantido à direita
-        y=1.08,  # Mantido abaixo da legenda
+        x=0.5,  # Centralizado horizontalmente
+        y=1.08,  # Posicionado abaixo da legenda
         showarrow=False,
         font=dict(size=12, color=cores_tema['texto']),
-        align='right',  # Alterado para 'right' para alinhar texto à direita
+        align='center',
         bgcolor='rgba(255, 255, 255, 0.8)' if detectar_tema() == 'light' else 'rgba(14, 17, 23, 0.8)'
     )
     

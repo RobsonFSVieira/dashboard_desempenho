@@ -185,13 +185,13 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
         legend={
             'orientation': 'h',
             'yanchor': 'bottom',
-            'y': 1.15,  # Aumentado para dar espaço à anotação
+            'y': 1.05,  # Ajustado posição da legenda
             'xanchor': 'right',
             'x': 1,
             'font': {'size': 14, 'color': cores_tema['texto']},  # Aumentado tamanho da fonte
             'bgcolor': 'rgba(0,0,0,0)'
         },
-        margin=dict(l=40, r=40, t=150, b=100),  # Aumentada margem superior (t) para 150
+        margin=dict(l=40, r=40, t=120, b=100),  # Aumentada margem superior (t) para 120
         xaxis=dict(
             tickmode='array',
             ticktext=[f'{i:02d}h' for i in range(24)],  # Formata como 00h, 01h, etc
@@ -217,11 +217,11 @@ def criar_grafico_comboio(metricas_hora, cliente=None):
     fig.add_annotation(
         text="⚠️ As senhas pendentes formam o 'efeito bola de neve' - elas acumulam,<br>somando com as senhas retiradas do horário vigente",
         xref="paper", yref="paper",
-        x=1.02,  # Mantido à direita
-        y=1.08,  # Mantido abaixo da legenda
+        x=0.5,  # Centralizado horizontalmente
+        y=1.15, # Posicionado acima do gráfico
         showarrow=False,
         font=dict(size=12, color=cores_tema['texto']),
-        align='right',  # Alterado para 'right' para alinhar texto à direita
+        align='center',
         bgcolor='rgba(255, 255, 255, 0.8)' if detectar_tema() == 'light' else 'rgba(14, 17, 23, 0.8)'
     )
     
