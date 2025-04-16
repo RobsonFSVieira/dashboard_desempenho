@@ -345,22 +345,7 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
             # Mostrar resumo do horário
             st.write(f"### Detalhes do Horário {hora:02d}:00h")
             col1, col2, col3, col4 = st.columns(4)
-            
-            # Calcular pendências do horário anterior (hora - 1)
-            pendencias_anterior = metricas_df.loc[metricas_df['hora'] == (hora - 1 if hora > 0 else 23), 'pendentes'].iloc[0] if hora in metricas_df['hora'].values else 0
-            novas_senhas = int(pico['retiradas'])
-            
-            # Exibir métrica com detalhamento
-            total_senhas = novas_senhas + int(pendencias_anterior)
-            col1.metric(
-                "Senhas para Atender",
-                f"{total_senhas}"
-            )
-            col1.markdown(
-                f"<div style='font-size: 0.8em; margin-top: -15px;'>(Retiradas: {novas_senhas} + Pendentes: {int(pendencias_anterior)})</div>", 
-                unsafe_allow_html=True
-            )
-            
+            col1.metric("Senhas Retiradas", int(pico['retiradas']))
             col2.metric("Senhas Atendidas", int(pico['atendidas']))
             col3.metric("Senhas Pendentes", int(pico['pendentes']))
             col4.metric("Potencial Real de Atendimento", int(pico['senhas_viaveis']))

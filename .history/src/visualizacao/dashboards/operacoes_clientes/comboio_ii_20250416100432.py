@@ -351,15 +351,12 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
             novas_senhas = int(pico['retiradas'])
             
             # Exibir métrica com detalhamento
-            total_senhas = novas_senhas + int(pendencias_anterior)
             col1.metric(
                 "Senhas para Atender",
-                f"{total_senhas}"
+                f"{novas_senhas + int(pendencias_anterior)}",
+                help=f"Novas senhas: {novas_senhas}\nPendentes anterior: {int(pendencias_anterior)}"
             )
-            col1.markdown(
-                f"<div style='font-size: 0.8em; margin-top: -15px;'>(Retiradas: {novas_senhas} + Pendentes: {int(pendencias_anterior)})</div>", 
-                unsafe_allow_html=True
-            )
+            col1.markdown(f"<small>Novas: {novas_senhas}<br>Pendentes: {int(pendencias_anterior)}</small>", unsafe_allow_html=True)
             
             col2.metric("Senhas Atendidas", int(pico['atendidas']))
             col3.metric("Senhas Pendentes", int(pico['pendentes']))
