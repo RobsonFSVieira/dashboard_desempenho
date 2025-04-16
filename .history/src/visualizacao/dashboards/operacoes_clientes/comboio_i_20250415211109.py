@@ -152,8 +152,8 @@ def mostrar_aba(dados, filtros):
         st.plotly_chart(fig, use_container_width=True)
         
         # Insights
-        st.subheader("📊 Análise Detalhada")
-        with st.expander("Ver análise detalhada", expanded=True):
+        st.subheader("📊 Insights")
+        with st.expander("Ver insights", expanded=True):
             df = dados['base']
             
             # Preparação dos dados

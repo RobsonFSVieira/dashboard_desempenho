@@ -258,93 +258,55 @@ def gerar_insights_operacao(mov_p1, mov_p2):
     df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / df_comp['quantidade_p1'] * 100)
     df_comp['total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
 
-    # Cálculos principais
+    # Insights
     total_p1 = df_comp['quantidade_p1'].sum()
     total_p2 = df_comp['quantidade_p2'].sum()
     variacao_total = ((total_p2 - total_p1) / total_p1 * 100)
     
-    # 1. Visão Geral
+    # Operações com maior crescimento e queda
+    maior_crescimento = df_comp.nlargest(1, 'variacao').iloc[0]
+    maior_queda = df_comp.nsmallest(1, 'variacao').iloc[0]
+    
+    # Operações mais movimentadas
+    mais_movimentada = df_comp.nlargest(1, 'total').iloc[0]
+
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📈 Indicadores Gerais")
-        media_p1 = df_comp['quantidade_p1'].mean()
-        media_p2 = df_comp['quantidade_p2'].mean()
-        
+        st.subheader("📊 Visão Geral")
         st.markdown(f"""
-        ##### Volume Total
-        - Período 1: **{total_p1:,}** atendimentos
-        - Período 2: **{total_p2:,}** atendimentos
-        - Variação: **{variacao_total:+.1f}%** {'📈' if variacao_total > 0 else '📉'}
-        
-        ##### Média por Operação
-        - Período 1: **{int(media_p1):,}** atendimentos
-        - Período 2: **{int(media_p2):,}** atendimentos
-        - Variação: **{((media_p2 - media_p1) / media_p1 * 100):+.1f}%**
+        - Volume total no período 1: **{total_p1:,}** atendimentos
+        - Volume total no período 2: **{total_p2:,}** atendimentos
+        - Variação total: **{variacao_total:,.1f}%**
         """)
-    
+        
+        st.subheader("🔝 Destaques")
+        st.markdown(f"""
+        - Operação mais movimentada: **{mais_movimentada['operacao']}** 
+          (total de {mais_movimentada['total']:,} atendimentos)
+        """)
+
     with col2:
-        st.subheader("🔝 Operações Destaque")
-        top_operacoes = df_comp.nlargest(3, 'total')
-        
-        for _, row in top_operacoes.iterrows():
-            var = ((row['quantidade_p2'] - row['quantidade_p1']) / row['quantidade_p1'] * 100)
-            st.markdown(f"""
-            - **{row['operacao']}**:
-                - Total: **{int(row['total']):,}** atendimentos
-                - Participação: **{(row['total']/(total_p1 + total_p2)*100):.1f}%**
-                - Variação: **{var:+.1f}%** {'📈' if var > 0 else '📉'}
-            """)
-    
-    # 2. Análise de Variações
-    st.markdown("---")
-    st.subheader("📊 Análise de Variações")
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        st.subheader("🔼 Maiores Crescimentos")
-        crescimentos = df_comp.nlargest(3, 'variacao')
-        for _, row in crescimentos.iterrows():
-            aumento = row['quantidade_p2'] - row['quantidade_p1']
-            st.markdown(f"""
-            - **{row['operacao']}**:
-                - Crescimento: **{row['variacao']:+.1f}%** 📈
-                - De {row['quantidade_p1']:,} para {row['quantidade_p2']:,}
-                - Aumento de **{aumento:,}** atendimentos
-            """)
-
-    with col4:
-        st.subheader("🔽 Maiores Reduções")
-        reducoes = df_comp.nsmallest(3, 'variacao')
-        for _, row in reducoes.iterrows():
-            reducao = row['quantidade_p1'] - row['quantidade_p2']
-            st.markdown(f"""
-            - **{row['operacao']}**:
-                - Redução: **{row['variacao']:.1f}%** 📉
-                - De {row['quantidade_p1']:,} para {row['quantidade_p2']:,}
-                - Queda de **{reducao:,}** atendimentos
-            """)
-    
-    # 3. Recomendações
-    st.markdown("---")
-    st.subheader("💡 Recomendações")
-    col5, col6 = st.columns(2)
-    
-    with col5:
-        st.markdown("#### Ações Imediatas")
+        st.subheader("📈 Maiores Variações")
         st.markdown(f"""
-        - {'⚠️ Aumento' if variacao_total > 10 else '📉 Redução'} significativo no volume total: **{variacao_total:+.1f}%**
-        - Reforço nas operações com maior crescimento
-        - Monitoramento das operações em queda
+        - Maior crescimento: **{maior_crescimento['operacao']}** 
+          ({maior_crescimento['variacao']:,.1f}%)
+        - Maior queda: **{maior_queda['operacao']}** 
+          ({maior_queda['variacao']:,.1f}%)
         """)
-
-    with col6:
-        st.markdown("#### Ações Preventivas")
-        st.markdown("""
-        - Análise de capacidade operacional
-        - Redistribuição de recursos
-        - Otimização de processos
-        """)
+        
+        # Recomendações baseadas nos dados
+        st.subheader("💡 Recomendações")
+        if maior_queda['variacao'] < -20:
+            st.markdown(f"""
+            - Investigar a queda significativa em **{maior_queda['operacao']}**
+            - Verificar possíveis causas: demanda, recursos, processos
+            """)
+        if maior_crescimento['variacao'] > 50:
+            st.markdown(f"""
+            - Analisar o sucesso de **{maior_crescimento['operacao']}**
+            - Considerar aplicar práticas bem-sucedidas em outras operações
+            """)
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Movimentação por Operação"""
@@ -373,9 +335,7 @@ def mostrar_aba(dados, filtros):
             
         # Adiciona insights abaixo do gráfico
         st.markdown("---")
-        st.subheader("📈 Análise Detalhada")
-        with st.expander("Ver análise detalhada", expanded=True):
-            gerar_insights_operacao(mov_p1, mov_p2)
+        gerar_insights_operacao(mov_p1, mov_p2)
     
     except Exception as e:
         st.error(f"Erro ao mostrar aba: {str(e)}")
