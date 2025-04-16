@@ -7,7 +7,7 @@ def criar_filtros():
     st.sidebar.header("Filtros de Análise")
     
     # Seção de Períodos em um expander
-    with st.sidebar.expander("📅 Períodos de Análise", expanded=False):
+    with st.sidebar.expander("📅 Períodos de Análise", expanded=True):
         # Configuração do formato de data brasileiro
         locale_date = lambda x: x.strftime('%d/%m/%Y')
         
@@ -55,7 +55,7 @@ def criar_filtros():
         df = st.session_state.dados['base']
         
         # Filtro de Clientes em um expander
-        with st.sidebar.expander("👥 Clientes", expanded=False):
+        with st.sidebar.expander("👥 Clientes", expanded=True):
             clientes = ["Todos"] + sorted(df['CLIENTE'].unique().tolist())
             cliente = st.multiselect(
                 "Cliente",
@@ -65,7 +65,7 @@ def criar_filtros():
             )
         
         # Filtro de Operações em um expander
-        with st.sidebar.expander("🔧 Operações", expanded=False):
+        with st.sidebar.expander("🔧 Operações", expanded=True):
             operacoes = ["Todas"] + sorted(df['OPERAÇÃO'].unique().tolist())
             operacao = st.multiselect(
                 "Operação",
@@ -75,7 +75,7 @@ def criar_filtros():
             )
         
         # Filtro de Turnos em um expander
-        with st.sidebar.expander("⏰ Turnos", expanded=False):
+        with st.sidebar.expander("⏰ Turnos", expanded=True):
             turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
             turno = st.multiselect(
                 "Turno",
@@ -85,7 +85,7 @@ def criar_filtros():
             )
         
         # Meta de permanência em um expander
-        with st.sidebar.expander("🎯 Meta", expanded=False):
+        with st.sidebar.expander("🎯 Meta", expanded=True):
             meta_permanencia = st.number_input(
                 "Meta de Permanência (minutos)",
                 min_value=1,

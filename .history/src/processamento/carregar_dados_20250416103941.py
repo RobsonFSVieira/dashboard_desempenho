@@ -86,8 +86,8 @@ def validar_colunas(df):
 def carregar_dados():
     """Carrega e processa os arquivos necessários"""
     try:
-        # Criando expander para os uploads (iniciando fechado)
-        with st.sidebar.expander("📁 Upload de Arquivos", expanded=False):
+        # Criando expander para os uploads
+        with st.sidebar.expander("📁 Upload de Arquivos", expanded=True):
             arquivo_base = st.file_uploader(
                 "Base de Dados (base.xlsx)", 
                 type="xlsx",
