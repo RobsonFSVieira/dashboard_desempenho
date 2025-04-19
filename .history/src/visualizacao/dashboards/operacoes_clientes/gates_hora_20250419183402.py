@@ -435,37 +435,8 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
             
             # Formatação da tabela
             df_display = detalhes[cols].copy()
-            
-            # Adicionar colunas de períodos de atendimento
-            periodos_atendimento = {}
-            for gate in detalhes['gate']:
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atends = df_base[mask_gate].sort_values('inicio')
-                
-                # Criar lista de períodos para cada atendimento
-                periodos = []
-                for _, atend in atends.iterrows():
-                    inicio = f"{hora:02d}:{atend['inicio'].minute:02d}"
-                    fim = f"{hora:02d}:{atend['fim'].minute:02d}"
-                    periodos.append(f"{inicio}-{fim}")
-                
-                # Preencher dicionário com os períodos
-                periodos_atendimento[gate] = periodos
-            
-            # Encontrar o máximo de atendimentos para criar as colunas
-            max_atends = max(len(p) for p in periodos_atendimento.values())
-            
-            # Adicionar colunas de período ao DataFrame
-            for i in range(max_atends):
-                df_display[f'Atendimento {i+1}'] = df_display['gate'].map(
-                    lambda x: periodos_atendimento[x][i] if i < len(periodos_atendimento[x]) else '-'
-                )
-            
-            # Renomear e reorganizar colunas
-            colunas_base = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
-                           'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
-            colunas_atendimentos = [f'Atendimento {i+1}' for i in range(max_atends)]
-            df_display.columns = colunas_base + colunas_atendimentos
+            df_display.columns = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
+                                'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
             
             df_display = df_display.sort_values('Contribuição (%)', ascending=False)
             df_display['Contribuição (%)'] = df_display['Contribuição (%)'].apply(lambda x: f"{x:.1f}%")
@@ -513,7 +484,10 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 base=minuto_inicio,
                 marker_color=obter_cores_tema()['primaria'],
                 name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
+                text=rotulos,  # Usando os horários como rótulos
+                textposition='outside',
+                textfont={'size': 14, 'family': 'Arial Black'},
+                hovertemplate='Horário: %{text}<br>Duração: %{y}min<extra></extra>'
             ))
 
             # Criar visualização detalhada dos atendimentos
@@ -536,6 +510,11 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                             marker_color=obter_cores_tema()['primaria'],
                             name='Atendimento',
                             showlegend=False,
+                            text=[f"{hora:02d}:{int(inicio_min):02d}-{hora:02d}:{int(fim_min):02d}"],
+                            textposition='outside',
+                            cliponaxis=False,  # Permitir que os rótulos apareçam fora da área do gráfico
+                            textfont={'size': 11, 'family': 'Arial'},  # Fonte menor para caber melhor
+                            constrain='none',  # Não restringir posição do rótulo
                             hovertemplate=(
                                 f'Horário: {hora:02d}:{int(inicio_min):02d}-{hora:02d}:{int(fim_min):02d}<br>'
                                 f'Duração: {fim_min - inicio_min:.1f}min<extra></extra>'
@@ -559,14 +538,14 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
             fig.update_layout(
                 barmode='overlay',
                 title={'text': ''},
-                margin=dict(t=0, b=20, l=40, r=40),
+                margin=dict(t=40, b=20, l=40, r=40),  # Aumentado margem superior
                 xaxis_title='Gate',
                 yaxis_title='Minutos',
-                height=400,
+                height=450,  # Aumentada altura do gráfico
                 xaxis={'tickfont': {'size': 14}},
                 yaxis={
                     'tickfont': {'size': 14},
-                    'range': [0, 65],
+                    'range': [0, 70],  # Aumentado limite superior para os rótulos
                     'tickmode': 'array',
                     'tickvals': [0, 15, 30, 45, 60],
                     'ticktext': ['0', '15', '30', '45', '60']

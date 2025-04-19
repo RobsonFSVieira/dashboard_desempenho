@@ -76,26 +76,15 @@ def calcular_gates_hora(dados, filtros, cliente=None, operacao=None, data_especi
             # Calcular total de atendimentos na hora para percentuais
             total_atendimentos_hora = len(atendimentos_hora)
             
-            # Calcular tempo de atendimento
-            atendimentos_hora['tempo_atendimento'] = (
-                atendimentos_hora['fim'] - atendimentos_hora['inicio']
-            ).dt.total_seconds() / 60
-            
-            # Função para calcular intervalo médio
-            def calcular_intervalo_medio(serie):
-                diff = serie.diff()
-                if diff.empty:
-                    return pd.Timedelta(seconds=0)
-                return diff.mean().total_seconds() / 60
-            
             # Agrupar por gate e calcular métricas
             detalhes = (
                 atendimentos_hora.groupby('guichê')
                 .agg({
                     'id': 'count',
-                    'inicio': ['min', 'max', calcular_intervalo_medio],  # Média de intervalo
+                    'inicio': ['min', 'max', lambda x: x.diff().mean()],  # Média de intervalo
                     'usuário': 'first',
                     'tempo_atendimento': 'mean',  # Média tempo atendimento
+                    'senha_transferida': 'sum'  # Total senhas transferidas
                 })
                 .reset_index()
             )
@@ -103,11 +92,9 @@ def calcular_gates_hora(dados, filtros, cliente=None, operacao=None, data_especi
             # Renomear colunas
             detalhes.columns = [
                 'gate', 'atendimentos', 'inicio', 'fim', 
-                'media_intervalo', 'usuario', 'media_tempo_atend'
+                'media_intervalo', 'usuario', 'media_tempo_atend',
+                'senhas_transferidas'
             ]
-            
-            # Adicionar coluna de senhas transferidas como 0 (já que não temos essa informação)
-            detalhes['senhas_transferidas'] = 0
             
             # Calcular tempo efetivo de operação em minutos
             detalhes['tempo_operacao'] = (
@@ -124,6 +111,9 @@ def calcular_gates_hora(dados, filtros, cliente=None, operacao=None, data_especi
             detalhes['percentual_contribuicao'] = (
                 detalhes['atendimentos'] / total_atendimentos_hora * 100
             ).round(1)
+            
+            # Converter intervalo médio para minutos
+            detalhes['media_intervalo'] = detalhes['media_intervalo'].dt.total_seconds() / 60
             
             detalhes_gates[hora] = detalhes
         else:
@@ -376,252 +366,193 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
     """Gera insights sobre o uso dos gates"""
     metricas_df, df_base, detalhes_gates = metricas
     
+    # Cálculos principais
+    total_gates = metricas_df['gates_ativos'].max()
+    media_gates = metricas_df[metricas_df['gates_ativos'] > 0]['gates_ativos'].mean()
+    total_atendimentos = metricas_df['atendimentos'].sum()
+    
+    manha = metricas_df.loc[7:14, 'gates_ativos'].mean()
+    tarde = metricas_df.loc[15:22, 'gates_ativos'].mean()
+    noite = pd.concat([metricas_df.loc[23:23, 'gates_ativos'], 
+                      metricas_df.loc[0:7, 'gates_ativos']]).mean()
+
+    # Layout compacto com métricas
+    st.markdown(f"""
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+        <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+            <h4 style="margin: 0; color: #1a5fb4;">📊 Métricas Gerais</h4>
+            <div style="margin-top: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Gates Máximos:</span>
+                    <strong>{int(total_gates)}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Média de Gates:</span>
+                    <strong>{media_gates:.1f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Total de Atendimentos:</span>
+                    <strong>{int(total_atendimentos):,}</strong>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+            <h4 style="margin: 0; color: #2ecc71;">⏱️ Média por Turno</h4>
+            <div style="margin-top: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Manhã (7h-14h):</span>
+                    <strong>{manha:.1f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <span>Tarde (15h-22h):</span>
+                    <strong>{tarde:.1f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Noite (23h-7h):</span>
+                    <strong>{noite:.1f}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Seletor de hora compacto com botões em linha horizontal
+    st.markdown("""
+    <style>
+     .hora-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 4px;
+        padding: 8px;
+        background: rgba(0,0,0,0.02);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        overflow-x: auto;
+    }
+    .hora-btn {
+        flex: 0 0 auto;
+        min-width: 45px;
+        display: flex; align-items: center; justify-content: center;
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        background: transparent;
+        border: 1px solid rgba(26, 95, 180, 0.2);
+        color: inherit;
+        font-size: 12px;
+        transition: all 0.2s ease;
+    }
+    .hora-btn:hover {
+        background: rgba(26, 95, 180, 0.1);
+        transform: scale(1.05);
+    }
+    .hora-btn.active {
+        background: rgba(46, 204, 113, 0.2);
+        border-color: rgba(46, 204, 113, 0.8);
+        font-weight: bold;
+    }
+    .hora-btn.empty {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: rgba(0,0,0,0.05);
+    }
+    
+    /* Estilo para os cards de gates */
+    .gate-cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    .gate-card {
+        background: white;
+        padding: 0.8rem;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="hora-grid">', unsafe_allow_html=True)
+    
     if 'hora_selecionada' not in st.session_state:
         st.session_state.hora_selecionada = None
-    
-    # Adicionar CSS para ocultar os labels do select_slider
-    st.markdown("""
-        <style>
-            /* Esconde os labels das extremidades do select slider */
-            div.stSlider [data-testid="stTickBar"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # Criação do seletor de hora - Removida a divisão em colunas para ocupar toda largura
-    horas_disponiveis = [hora for hora in range(24) if not detalhes_gates[hora].empty]
-    if not horas_disponiveis:
-        st.warning("Não há dados disponíveis para análise")
-        return
+
+    for hora in range(24):
+        tem_dados = hora in detalhes_gates and not detalhes_gates[hora].empty
+        classe = "hora-btn"
+        if not tem_dados:
+            classe += " empty"
+        elif st.session_state.hora_selecionada == hora:
+            classe += " active"
         
-    hora = st.select_slider(
-        "Selecione a hora para análise:",
-        options=horas_disponiveis,
-        format_func=lambda x: f"{x:02d}:00h",
-        key="hora_analise",
-        label_visibility='hidden'  # Alterado para 'hidden'
-    )
+        st.markdown(f"""
+            <div class="{classe}" onclick="
+                window.parent.postMessage({{
+                    type: 'streamlit:set_component_value',
+                    key: 'hora_selecionada',
+                    value: {hora if tem_dados else None}
+                }}, '*')">
+                {hora:02d}h
+            </div>
+        """, unsafe_allow_html=True)
 
-    # Função para formatar tempo em mm:ss
-    def formatar_tempo(minutos):
-        if pd.isna(minutos):
-            return "--:-- min"
-        mins = int(minutos)
-        segs = int((minutos - mins) * 60)
-        return f"{mins:02d}:{segs:02d} min"
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Estilo padrão para todas as tabelas
-    estilo_tabela = {
-        'background-color': '#0e1117',
-        'color': 'white',
-        'border-color': '#2d2d2d'
-    }
-
-    # Se tiver uma hora selecionada, mostrar análise detalhada
-    if hora is not None:
+    # Mostrar detalhes do horário selecionado
+    if st.session_state.hora_selecionada is not None:
+        hora = st.session_state.hora_selecionada
         detalhes = detalhes_gates[hora]
         if not detalhes.empty:
+            n_gates = len(detalhes)
+            total_atend = detalhes['atendimentos'].sum()
+            media_atend = detalhes['atend_por_hora'].mean()
+            
             st.markdown(f"""
-            <div style='background-color: #1a5fb4; padding: 1rem; border-radius: 10px; margin: 1rem 0; color: white;'>
-                <h3 style="margin: 0; color: white;">📊 Análise Detalhada - {hora:02d}:00h</h3>
-                <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Total de atendimentos na hora: {detalhes['atendimentos'].sum()}</p>
+            <div style="padding: 1rem; background: rgba(26, 95, 180, 0.05); border-radius: 8px; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0;">📊 {hora:02d}:00h</h4>
+                    <div style="display: flex; gap: 1rem;">
+                        <span><strong>{n_gates}</strong> gates</span>
+                        <span><strong>{total_atend}</strong> atendimentos</span>
+                        <span><strong>{media_atend:.1f}</strong> média/gate</span>
+                    </div>
+                </div>
+                <div class="gate-cards-container">
+                    {' '.join([f'''
+                    <div class="gate-card">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <strong>Gate {gate['gate']}</strong>
+                            <span class="badge" style="background: {get_color_by_duration(gate['tempo_operacao'])}">
+                                {gate['percentual_contribuicao']}% do total
+                            </span>
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            <span style="color: #666;">Atendente: <strong>{gate['usuario']}</strong></span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9em; color: #666;">
+                            <div>
+                                <div>⏱️ Tempo médio: <strong>{gate['media_tempo_atend']:.1f}min</strong></div>
+                                <div>⌛ Intervalo médio: <strong>{gate['media_intervalo']:.1f}min</strong></div>
+                            </div>
+                            <div>
+                                <div>🔄 Transferências: <strong>{gate['senhas_transferidas']}</strong></div>
+                                <div>📊 Atendimentos: <strong>{gate['atendimentos']}</strong></div>
+                            </div>
+                        </div>
+                        <div style="height: 4px; background: rgba(0,0,0,0.1); border-radius: 2px; margin-top: 0.5rem;">
+                            <div style="width: {gate['percentual_contribuicao']}%; height: 100%; 
+                                      background: {get_color_by_duration(gate['tempo_operacao'])}; 
+                                      transition: width 0.5s;">
+                            </div>
+                        </div>
+                    </div>
+                    ''' for _, gate in detalhes.iterrows()])}
+                </div>
             </div>
             """, unsafe_allow_html=True)
-            
-            # Tabela principal com todas as métricas solicitadas
-            cols = ['gate', 'usuario', 'atendimentos', 'percentual_contribuicao', 
-                   'media_tempo_atend', 'media_intervalo', 'senhas_transferidas']
-            
-            # Formatação da tabela
-            df_display = detalhes[cols].copy()
-            
-            # Adicionar colunas de períodos de atendimento
-            periodos_atendimento = {}
-            for gate in detalhes['gate']:
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atends = df_base[mask_gate].sort_values('inicio')
-                
-                # Criar lista de períodos para cada atendimento
-                periodos = []
-                for _, atend in atends.iterrows():
-                    inicio = f"{hora:02d}:{atend['inicio'].minute:02d}"
-                    fim = f"{hora:02d}:{atend['fim'].minute:02d}"
-                    periodos.append(f"{inicio}-{fim}")
-                
-                # Preencher dicionário com os períodos
-                periodos_atendimento[gate] = periodos
-            
-            # Encontrar o máximo de atendimentos para criar as colunas
-            max_atends = max(len(p) for p in periodos_atendimento.values())
-            
-            # Adicionar colunas de período ao DataFrame
-            for i in range(max_atends):
-                df_display[f'Atendimento {i+1}'] = df_display['gate'].map(
-                    lambda x: periodos_atendimento[x][i] if i < len(periodos_atendimento[x]) else '-'
-                )
-            
-            # Renomear e reorganizar colunas
-            colunas_base = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
-                           'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
-            colunas_atendimentos = [f'Atendimento {i+1}' for i in range(max_atends)]
-            df_display.columns = colunas_base + colunas_atendimentos
-            
-            df_display = df_display.sort_values('Contribuição (%)', ascending=False)
-            df_display['Contribuição (%)'] = df_display['Contribuição (%)'].apply(lambda x: f"{x:.1f}%")
-            
-            # Aplicar formatação de tempo
-            df_display['Tempo Médio (min)'] = df_display['Tempo Médio (min)'].apply(formatar_tempo)
-            df_display['Intervalo Médio (min)'] = df_display['Intervalo Médio (min)'].apply(formatar_tempo)
-            
-            # Mostrar tabela com tema escuro
-            st.dataframe(
-                df_display.style.set_properties(**estilo_tabela),
-                use_container_width=True
-            )
-            
-            # Título seção de contribuição e gráfico
-            st.markdown("### 📊 Contribuição por Gate (%)")
-            fig = go.Figure()
-            
-            # Barra de fundo (60 minutos)
-            fig.add_trace(go.Bar(
-                x=detalhes['gate'],
-                y=[60] * len(detalhes),  # 60 minutos
-                marker_color='rgba(128, 128, 128, 0.2)',
-                name='Hora Total',
-                hoverinfo='skip'
-            ))
-
-            # Calcular minutos dentro da hora para início e fim
-            minuto_inicio = detalhes['inicio'].dt.minute
-            minuto_fim = detalhes['fim'].dt.minute
-            
-            # Ajustar casos onde fim é na próxima hora
-            minuto_fim = minuto_fim.where(minuto_fim >= minuto_inicio, 60)
-            
-            # Criar rótulos com horários
-            rotulos = [
-                f"{hora:02d}:{inicio:02d}-{hora:02d}:{fim:02d}"
-                for inicio, fim in zip(minuto_inicio, minuto_fim)
-            ]
-            
-            # Barra de tempo ativo (período real)
-            fig.add_trace(go.Bar(
-                x=detalhes['gate'],
-                y=minuto_fim - minuto_inicio,
-                base=minuto_inicio,
-                marker_color=obter_cores_tema()['primaria'],
-                name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
-            ))
-
-            # Criar visualização detalhada dos atendimentos
-            for idx, gate in enumerate(detalhes['gate']):
-                # Filtrar atendimentos do gate na hora específica
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atendimentos_gate = df_base[mask_gate].sort_values('inicio')
-                
-                if not atendimentos_gate.empty:
-                    # Para cada atendimento, criar uma barra
-                    for _, atend in atendimentos_gate.iterrows():
-                        inicio_min = atend['inicio'].minute + (atend['inicio'].second / 60)
-                        fim_min = atend['fim'].minute + (atend['fim'].second / 60)
-                        
-                        # Barra do atendimento (azul)
-                        fig.add_trace(go.Bar(
-                            x=[gate],
-                            y=[fim_min - inicio_min],
-                            base=[inicio_min],
-                            marker_color=obter_cores_tema()['primaria'],
-                            name='Atendimento',
-                            showlegend=False,
-                            hovertemplate=(
-                                f'Horário: {hora:02d}:{int(inicio_min):02d}-{hora:02d}:{int(fim_min):02d}<br>'
-                                f'Duração: {fim_min - inicio_min:.1f}min<extra></extra>'
-                            )
-                        ))
-                        
-                        # Se houver próximo atendimento, adicionar intervalo
-                        if _ < len(atendimentos_gate) - 1:
-                            proximo_inicio = atendimentos_gate.iloc[_ + 1]['inicio'].minute + (atendimentos_gate.iloc[_ + 1]['inicio'].second / 60)
-                            # Barra do intervalo (escura)
-                            fig.add_trace(go.Bar(
-                                x=[gate],
-                                y=[proximo_inicio - fim_min],
-                                base=[fim_min],
-                                marker_color='rgba(0,0,0,0.1)',
-                                name='Intervalo',
-                                showlegend=False,
-                                hovertemplate='Intervalo: %{y:.1f}min<extra></extra>'
-                            ))
-
-            fig.update_layout(
-                barmode='overlay',
-                title={'text': ''},
-                margin=dict(t=0, b=20, l=40, r=40),
-                xaxis_title='Gate',
-                yaxis_title='Minutos',
-                height=400,
-                xaxis={'tickfont': {'size': 14}},
-                yaxis={
-                    'tickfont': {'size': 14},
-                    'range': [0, 65],
-                    'tickmode': 'array',
-                    'tickvals': [0, 15, 30, 45, 60],
-                    'ticktext': ['0', '15', '30', '45', '60']
-                }
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Título seção de desempenho (mantido mas com estilo consistente)
-            st.markdown("### 👥 Desempenho por Atendente")
-            
-            metricas_atendente = detalhes.groupby('usuario').agg({
-                'atendimentos': 'sum',
-                'media_tempo_atend': 'mean',
-                'media_intervalo': 'mean',
-                'senhas_transferidas': 'sum'
-            }).round(1)
-            
-            metricas_atendente.columns = ['Total Atendimentos', 'Tempo Médio (min)', 
-                                        'Intervalo Médio (min)', 'Transferências']
-            
-            # Aplicar formatação de tempo nas métricas de atendente
-            metricas_atendente['Tempo Médio (min)'] = metricas_atendente['Tempo Médio (min)'].apply(formatar_tempo)
-            metricas_atendente['Intervalo Médio (min)'] = metricas_atendente['Intervalo Médio (min)'].apply(formatar_tempo)
-            
-            st.dataframe(
-                metricas_atendente.style.set_properties(**estilo_tabela),
-                use_container_width=True
-            )
-            
-            # Detalhes estatísticos
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("### 📊 Estatísticas de Tempo")
-                stats_tempo = {
-                    "Menor tempo médio": formatar_tempo(detalhes['media_tempo_atend'].min()),
-                    "Maior tempo médio": formatar_tempo(detalhes['media_tempo_atend'].max()),
-                    "Tempo médio geral": formatar_tempo(detalhes['media_tempo_atend'].mean())
-                }
-                for k, v in stats_tempo.items():
-                    st.metric(k, v)
-            
-            with col2:
-                st.markdown("### ⌛ Estatísticas de Intervalo")
-                stats_intervalo = {
-                    "Menor intervalo": formatar_tempo(detalhes['media_intervalo'].min()),
-                    "Maior intervalo": formatar_tempo(detalhes['media_intervalo'].max()),
-                    "Intervalo médio": formatar_tempo(detalhes['media_intervalo'].mean())
-                }
-                for k, v in stats_intervalo.items():
-                    st.metric(k, v)
-        
         else:
-            st.info(f"Não há operações registradas para o horário {hora:02d}:00h")
-    
+            st.info("Sem operações neste horário")
+
     return
 
 def mostrar_aba(dados, filtros):

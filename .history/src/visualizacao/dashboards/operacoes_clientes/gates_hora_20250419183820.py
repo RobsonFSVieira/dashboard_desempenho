@@ -513,7 +513,10 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 base=minuto_inicio,
                 marker_color=obter_cores_tema()['primaria'],
                 name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
+                text=rotulos,  # Usando os horários como rótulos
+                textposition='outside',
+                textfont={'size': 14, 'family': 'Arial Black'},
+                hovertemplate='Horário: %{text}<br>Duração: %{y}min<extra></extra>'
             ))
 
             # Criar visualização detalhada dos atendimentos

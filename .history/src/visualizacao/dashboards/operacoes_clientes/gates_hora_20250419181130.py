@@ -435,37 +435,8 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
             
             # Formatação da tabela
             df_display = detalhes[cols].copy()
-            
-            # Adicionar colunas de períodos de atendimento
-            periodos_atendimento = {}
-            for gate in detalhes['gate']:
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atends = df_base[mask_gate].sort_values('inicio')
-                
-                # Criar lista de períodos para cada atendimento
-                periodos = []
-                for _, atend in atends.iterrows():
-                    inicio = f"{hora:02d}:{atend['inicio'].minute:02d}"
-                    fim = f"{hora:02d}:{atend['fim'].minute:02d}"
-                    periodos.append(f"{inicio}-{fim}")
-                
-                # Preencher dicionário com os períodos
-                periodos_atendimento[gate] = periodos
-            
-            # Encontrar o máximo de atendimentos para criar as colunas
-            max_atends = max(len(p) for p in periodos_atendimento.values())
-            
-            # Adicionar colunas de período ao DataFrame
-            for i in range(max_atends):
-                df_display[f'Atendimento {i+1}'] = df_display['gate'].map(
-                    lambda x: periodos_atendimento[x][i] if i < len(periodos_atendimento[x]) else '-'
-                )
-            
-            # Renomear e reorganizar colunas
-            colunas_base = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
-                           'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
-            colunas_atendimentos = [f'Atendimento {i+1}' for i in range(max_atends)]
-            df_display.columns = colunas_base + colunas_atendimentos
+            df_display.columns = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
+                                'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
             
             df_display = df_display.sort_values('Contribuição (%)', ascending=False)
             df_display['Contribuição (%)'] = df_display['Contribuição (%)'].apply(lambda x: f"{x:.1f}%")
@@ -489,73 +460,22 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 x=detalhes['gate'],
                 y=[60] * len(detalhes),  # 60 minutos
                 marker_color='rgba(128, 128, 128, 0.2)',
-                name='Hora Total',
+                name='Tempo Total Disponível',
                 hoverinfo='skip'
             ))
 
-            # Calcular minutos dentro da hora para início e fim
-            minuto_inicio = detalhes['inicio'].dt.minute
-            minuto_fim = detalhes['fim'].dt.minute
-            
-            # Ajustar casos onde fim é na próxima hora
-            minuto_fim = minuto_fim.where(minuto_fim >= minuto_inicio, 60)
-            
-            # Criar rótulos com horários
-            rotulos = [
-                f"{hora:02d}:{inicio:02d}-{hora:02d}:{fim:02d}"
-                for inicio, fim in zip(minuto_inicio, minuto_fim)
-            ]
-            
-            # Barra de tempo ativo (período real)
+            # Barra de tempo ativo
             fig.add_trace(go.Bar(
                 x=detalhes['gate'],
-                y=minuto_fim - minuto_inicio,
-                base=minuto_inicio,
+                y=detalhes['tempo_operacao'],
                 marker_color=obter_cores_tema()['primaria'],
-                name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
+                name='Tempo Ativo',
+                text=[f"{val:.1f}%" for val in detalhes['percentual_contribuicao']],
+                textposition='outside',
+                textfont={'size': 16, 'family': 'Arial Black'},
+                hovertemplate='Tempo ativo: %{y:.0f}min<br>Contribuição: %{text}<extra></extra>'
             ))
-
-            # Criar visualização detalhada dos atendimentos
-            for idx, gate in enumerate(detalhes['gate']):
-                # Filtrar atendimentos do gate na hora específica
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atendimentos_gate = df_base[mask_gate].sort_values('inicio')
-                
-                if not atendimentos_gate.empty:
-                    # Para cada atendimento, criar uma barra
-                    for _, atend in atendimentos_gate.iterrows():
-                        inicio_min = atend['inicio'].minute + (atend['inicio'].second / 60)
-                        fim_min = atend['fim'].minute + (atend['fim'].second / 60)
-                        
-                        # Barra do atendimento (azul)
-                        fig.add_trace(go.Bar(
-                            x=[gate],
-                            y=[fim_min - inicio_min],
-                            base=[inicio_min],
-                            marker_color=obter_cores_tema()['primaria'],
-                            name='Atendimento',
-                            showlegend=False,
-                            hovertemplate=(
-                                f'Horário: {hora:02d}:{int(inicio_min):02d}-{hora:02d}:{int(fim_min):02d}<br>'
-                                f'Duração: {fim_min - inicio_min:.1f}min<extra></extra>'
-                            )
-                        ))
-                        
-                        # Se houver próximo atendimento, adicionar intervalo
-                        if _ < len(atendimentos_gate) - 1:
-                            proximo_inicio = atendimentos_gate.iloc[_ + 1]['inicio'].minute + (atendimentos_gate.iloc[_ + 1]['inicio'].second / 60)
-                            # Barra do intervalo (escura)
-                            fig.add_trace(go.Bar(
-                                x=[gate],
-                                y=[proximo_inicio - fim_min],
-                                base=[fim_min],
-                                marker_color='rgba(0,0,0,0.1)',
-                                name='Intervalo',
-                                showlegend=False,
-                                hovertemplate='Intervalo: %{y:.1f}min<extra></extra>'
-                            ))
-
+            
             fig.update_layout(
                 barmode='overlay',
                 title={'text': ''},
@@ -566,10 +486,18 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 xaxis={'tickfont': {'size': 14}},
                 yaxis={
                     'tickfont': {'size': 14},
-                    'range': [0, 65],
+                    'range': [0, 65],  # Limite do eixo Y (60 min + margem para rótulos)
                     'tickmode': 'array',
                     'tickvals': [0, 15, 30, 45, 60],
                     'ticktext': ['0', '15', '30', '45', '60']
+                },
+                showlegend=True,
+                legend={
+                    'orientation': 'h',
+                    'yanchor': 'bottom',
+                    'y': 1.02,
+                    'xanchor': 'right',
+                    'x': 1
                 }
             )
             

@@ -435,37 +435,8 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
             
             # Formatação da tabela
             df_display = detalhes[cols].copy()
-            
-            # Adicionar colunas de períodos de atendimento
-            periodos_atendimento = {}
-            for gate in detalhes['gate']:
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atends = df_base[mask_gate].sort_values('inicio')
-                
-                # Criar lista de períodos para cada atendimento
-                periodos = []
-                for _, atend in atends.iterrows():
-                    inicio = f"{hora:02d}:{atend['inicio'].minute:02d}"
-                    fim = f"{hora:02d}:{atend['fim'].minute:02d}"
-                    periodos.append(f"{inicio}-{fim}")
-                
-                # Preencher dicionário com os períodos
-                periodos_atendimento[gate] = periodos
-            
-            # Encontrar o máximo de atendimentos para criar as colunas
-            max_atends = max(len(p) for p in periodos_atendimento.values())
-            
-            # Adicionar colunas de período ao DataFrame
-            for i in range(max_atends):
-                df_display[f'Atendimento {i+1}'] = df_display['gate'].map(
-                    lambda x: periodos_atendimento[x][i] if i < len(periodos_atendimento[x]) else '-'
-                )
-            
-            # Renomear e reorganizar colunas
-            colunas_base = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
-                           'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
-            colunas_atendimentos = [f'Atendimento {i+1}' for i in range(max_atends)]
-            df_display.columns = colunas_base + colunas_atendimentos
+            df_display.columns = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
+                                'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
             
             df_display = df_display.sort_values('Contribuição (%)', ascending=False)
             df_display['Contribuição (%)'] = df_display['Contribuição (%)'].apply(lambda x: f"{x:.1f}%")
@@ -513,7 +484,10 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 base=minuto_inicio,
                 marker_color=obter_cores_tema()['primaria'],
                 name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
+                text=rotulos,  # Usando os horários como rótulos
+                textposition='outside',
+                textfont={'size': 14, 'family': 'Arial Black'},
+                hovertemplate='Horário: %{text}<br>Duração: %{y}min<extra></extra>'
             ))
 
             # Criar visualização detalhada dos atendimentos

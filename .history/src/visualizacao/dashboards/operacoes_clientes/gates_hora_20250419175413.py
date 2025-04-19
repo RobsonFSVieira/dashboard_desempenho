@@ -379,16 +379,6 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
     if 'hora_selecionada' not in st.session_state:
         st.session_state.hora_selecionada = None
     
-    # Adicionar CSS para ocultar os labels do select_slider
-    st.markdown("""
-        <style>
-            /* Esconde os labels das extremidades do select slider */
-            div.stSlider [data-testid="stTickBar"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
     # Criação do seletor de hora - Removida a divisão em colunas para ocupar toda largura
     horas_disponiveis = [hora for hora in range(24) if not detalhes_gates[hora].empty]
     if not horas_disponiveis:
@@ -399,14 +389,11 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
         "Selecione a hora para análise:",
         options=horas_disponiveis,
         format_func=lambda x: f"{x:02d}:00h",
-        key="hora_analise",
-        label_visibility='hidden'  # Alterado para 'hidden'
+        key="hora_analise"
     )
 
     # Função para formatar tempo em mm:ss
     def formatar_tempo(minutos):
-        if pd.isna(minutos):
-            return "--:-- min"
         mins = int(minutos)
         segs = int((minutos - mins) * 60)
         return f"{mins:02d}:{segs:02d} min"
@@ -435,37 +422,8 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
             
             # Formatação da tabela
             df_display = detalhes[cols].copy()
-            
-            # Adicionar colunas de períodos de atendimento
-            periodos_atendimento = {}
-            for gate in detalhes['gate']:
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atends = df_base[mask_gate].sort_values('inicio')
-                
-                # Criar lista de períodos para cada atendimento
-                periodos = []
-                for _, atend in atends.iterrows():
-                    inicio = f"{hora:02d}:{atend['inicio'].minute:02d}"
-                    fim = f"{hora:02d}:{atend['fim'].minute:02d}"
-                    periodos.append(f"{inicio}-{fim}")
-                
-                # Preencher dicionário com os períodos
-                periodos_atendimento[gate] = periodos
-            
-            # Encontrar o máximo de atendimentos para criar as colunas
-            max_atends = max(len(p) for p in periodos_atendimento.values())
-            
-            # Adicionar colunas de período ao DataFrame
-            for i in range(max_atends):
-                df_display[f'Atendimento {i+1}'] = df_display['gate'].map(
-                    lambda x: periodos_atendimento[x][i] if i < len(periodos_atendimento[x]) else '-'
-                )
-            
-            # Renomear e reorganizar colunas
-            colunas_base = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
-                           'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
-            colunas_atendimentos = [f'Atendimento {i+1}' for i in range(max_atends)]
-            df_display.columns = colunas_base + colunas_atendimentos
+            df_display.columns = ['Gate', 'Atendente', 'Atendimentos', 'Contribuição (%)', 
+                                'Tempo Médio (min)', 'Intervalo Médio (min)', 'Transferências']
             
             df_display = df_display.sort_values('Contribuição (%)', ascending=False)
             df_display['Contribuição (%)'] = df_display['Contribuição (%)'].apply(lambda x: f"{x:.1f}%")
@@ -480,97 +438,26 @@ def gerar_insights_gates(metricas, data_selecionada=None, cliente=None, operacao
                 use_container_width=True
             )
             
-            # Título seção de contribuição e gráfico
+            # Título seção de contribuição e gráfico (removido espaço extra)
             st.markdown("### 📊 Contribuição por Gate (%)")
             fig = go.Figure()
-            
-            # Barra de fundo (60 minutos)
             fig.add_trace(go.Bar(
                 x=detalhes['gate'],
-                y=[60] * len(detalhes),  # 60 minutos
-                marker_color='rgba(128, 128, 128, 0.2)',
-                name='Hora Total',
-                hoverinfo='skip'
+                y=detalhes['percentual_contribuicao'],
+                text=[f"{val:.1f}%" for val in detalhes['percentual_contribuicao']],
+                textposition='auto',
+                textfont={'size': 16, 'family': 'Arial Black'},  # Fonte em negrito
+                name='Contribuição (%)'
             ))
-
-            # Calcular minutos dentro da hora para início e fim
-            minuto_inicio = detalhes['inicio'].dt.minute
-            minuto_fim = detalhes['fim'].dt.minute
             
-            # Ajustar casos onde fim é na próxima hora
-            minuto_fim = minuto_fim.where(minuto_fim >= minuto_inicio, 60)
-            
-            # Criar rótulos com horários
-            rotulos = [
-                f"{hora:02d}:{inicio:02d}-{hora:02d}:{fim:02d}"
-                for inicio, fim in zip(minuto_inicio, minuto_fim)
-            ]
-            
-            # Barra de tempo ativo (período real)
-            fig.add_trace(go.Bar(
-                x=detalhes['gate'],
-                y=minuto_fim - minuto_inicio,
-                base=minuto_inicio,
-                marker_color=obter_cores_tema()['primaria'],
-                name='Período Ativo',
-                hovertemplate='Horário: %{base:.0f}-%{y:.0f}min<br>Duração: %{y:.1f}min<extra></extra>'
-            ))
-
-            # Criar visualização detalhada dos atendimentos
-            for idx, gate in enumerate(detalhes['gate']):
-                # Filtrar atendimentos do gate na hora específica
-                mask_gate = (df_base['guichê'] == gate) & (df_base['inicio'].dt.hour == hora)
-                atendimentos_gate = df_base[mask_gate].sort_values('inicio')
-                
-                if not atendimentos_gate.empty:
-                    # Para cada atendimento, criar uma barra
-                    for _, atend in atendimentos_gate.iterrows():
-                        inicio_min = atend['inicio'].minute + (atend['inicio'].second / 60)
-                        fim_min = atend['fim'].minute + (atend['fim'].second / 60)
-                        
-                        # Barra do atendimento (azul)
-                        fig.add_trace(go.Bar(
-                            x=[gate],
-                            y=[fim_min - inicio_min],
-                            base=[inicio_min],
-                            marker_color=obter_cores_tema()['primaria'],
-                            name='Atendimento',
-                            showlegend=False,
-                            hovertemplate=(
-                                f'Horário: {hora:02d}:{int(inicio_min):02d}-{hora:02d}:{int(fim_min):02d}<br>'
-                                f'Duração: {fim_min - inicio_min:.1f}min<extra></extra>'
-                            )
-                        ))
-                        
-                        # Se houver próximo atendimento, adicionar intervalo
-                        if _ < len(atendimentos_gate) - 1:
-                            proximo_inicio = atendimentos_gate.iloc[_ + 1]['inicio'].minute + (atendimentos_gate.iloc[_ + 1]['inicio'].second / 60)
-                            # Barra do intervalo (escura)
-                            fig.add_trace(go.Bar(
-                                x=[gate],
-                                y=[proximo_inicio - fim_min],
-                                base=[fim_min],
-                                marker_color='rgba(0,0,0,0.1)',
-                                name='Intervalo',
-                                showlegend=False,
-                                hovertemplate='Intervalo: %{y:.1f}min<extra></extra>'
-                            ))
-
             fig.update_layout(
-                barmode='overlay',
-                title={'text': ''},
-                margin=dict(t=0, b=20, l=40, r=40),
+                title={'text': ''},  # Sem título no gráfico
+                margin=dict(t=0, b=20, l=40, r=40),  # Ajustado margins para reduzir espaço
                 xaxis_title='Gate',
-                yaxis_title='Minutos',
+                yaxis_title='Porcentagem do Total (%)',
                 height=400,
-                xaxis={'tickfont': {'size': 14}},
-                yaxis={
-                    'tickfont': {'size': 14},
-                    'range': [0, 65],
-                    'tickmode': 'array',
-                    'tickvals': [0, 15, 30, 45, 60],
-                    'ticktext': ['0', '15', '30', '45', '60']
-                }
+                xaxis={'tickfont': {'size': 14}},  # Aumentar fonte do eixo X
+                yaxis={'tickfont': {'size': 14}}   # Aumentar fonte do eixo Y
             )
             
             st.plotly_chart(fig, use_container_width=True)
