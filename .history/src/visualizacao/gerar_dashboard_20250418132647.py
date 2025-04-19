@@ -33,9 +33,9 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 "Tempo de Espera em Fila",
                 "Permanência",
                 "Turnos",
-                "Gates em Atividade/Hora",
                 "Chegada em Comboio I",
-                "Chegada em Comboio II"
+                "Chegada em Comboio II",
+                "Gates em Atividade/Hora"
             ])
             
             # Dicionário de funções de aba com tratamento de erro
@@ -47,9 +47,9 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 4: ('Tempo de Espera em Fila', espera.mostrar_aba),
                 5: ('Permanência', permanencia.mostrar_aba),
                 6: ('Turnos', turnos.mostrar_aba),
-                7: ('Gates em Atividade/Hora', gates_hora.mostrar_aba),
-                8: ('Chegada em Comboio I', comboio_i.mostrar_aba),
-                9: ('Chegada em Comboio II', comboio_ii.mostrar_aba)
+                7: ('Chegada em Comboio I', comboio_i.mostrar_aba),
+                8: ('Chegada em Comboio II', comboio_ii.mostrar_aba),
+                9: ('Gates em Atividade/Hora', gates_hora.mostrar_aba)
             }
             
             # Exibir abas com tratamento de erro aprimorado

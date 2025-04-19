@@ -1,0 +1,6 @@
+.container-botoes {
+  display: flex;
+  flex-direction: row;
+  gap: 10px; /* espaçamento entre os botões */
+  align-items: center;
+}
