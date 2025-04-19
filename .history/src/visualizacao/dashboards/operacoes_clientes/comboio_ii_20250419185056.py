@@ -388,8 +388,14 @@ def gerar_insights_comboio(metricas, dados=None, data_selecionada=None, cliente=
             col3.metric("Senhas Pendentes", int(pico['pendentes']))
             col4.metric("Potencial Real de Atendimento", potencial)
             
-            # Calcular gates ativos do horário atual
-            gates_ativos = len(df_base[df_base['inicio'].dt.hour == hora]['guichê'].unique())
+            # Calcular quantidade de gates ativos para esta hora
+            gates_metricas = calcular_gates_hora(dados, filtros, 
+                                               cliente=cliente if tipo_analise == "Por Cliente" else None,
+                                               operacao=operacao if tipo_analise == "Por Operação" else None,
+                                               data_especifica=data_selecionada)[0]
+            gates_ativos = int(gates_metricas.loc[gates_metricas.index == hora, 'gates_ativos'].iloc[0])
+            
+            # Criar nova coluna para gates ativos
             col5.metric("Gates Ativos", gates_ativos)
             
             # Exibir tabela detalhada
