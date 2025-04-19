@@ -1,5 +1,12 @@
 import streamlit as st
 from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii, gates_hora
+from visualizacao.dashboards.desenvolvimento_pessoas import (
+    tempo_atend as dev_tempo_atend, 
+    geral_pessoas,
+    ocorrencias,
+    ociosidade,
+    performance
+)
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
@@ -69,7 +76,44 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                         st.warning("Tente recarregar a página ou verificar os dados de entrada.")
                         
         elif tipo_dashboard == "Desenvolvimento de Pessoas":
-            st.info("🚧 Dashboard de Desenvolvimento de Pessoas em construção")
+            tabs = st.tabs([
+                "Visão Geral",
+                "Tempo de Atendimento", 
+                "Desempenho",
+                "Ociosidade",
+                "Ocorrências"
+            ])
+            
+            with tabs[0]:
+                try:
+                    geral_pessoas.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Visão Geral: {str(e)}")
+            
+            with tabs[1]:
+                try:
+                    dev_tempo_atend.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
+            
+            with tabs[2]:
+                try:
+                    performance.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Desempenho: {str(e)}")
+            
+            with tabs[3]:
+                try:
+                    ociosidade.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Ociosidade: {str(e)}")
+            
+            with tabs[4]:
+                try:
+                    ocorrencias.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Ocorrências: {str(e)}")
+                
 
     except Exception as e:
         st.error("Erro crítico ao gerar o dashboard")
