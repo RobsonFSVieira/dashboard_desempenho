@@ -9,18 +9,19 @@ def analisar_colaborador(dados, filtros, colaborador, adicional_filters=None):
     """Analisa dados de um colaborador específico"""
     df = dados['base']
     
-    # Calcular médias gerais por operação (todos os usuários)
-    mask_periodo = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
-    )
-    medias_gerais = df[mask_periodo].groupby('OPERAÇÃO').agg({
+    # Calcular médias gerais por operação (todos os colaboradores)
+    medias_gerais = df.groupby('OPERAÇÃO').agg({
+        'id': 'count',
         'tpatend': 'mean'
     }).reset_index()
     medias_gerais['tpatend'] = medias_gerais['tpatend'] / 60
     
-    # Aplicar filtros para o colaborador específico
-    mask = mask_periodo & (df['usuário'] == colaborador)
+    # Aplicar filtros de data e colaborador
+    mask = (
+        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+        (df['retirada'].dt.date <= filtros['periodo2']['fim']) &
+        (df['usuário'] == colaborador)
+    )
     
     # Aplicar filtros adicionais
     if adicional_filters:
@@ -50,14 +51,10 @@ def analisar_colaborador(dados, filtros, colaborador, adicional_filters=None):
     # Adicionar médias gerais como referência
     metricas_op = pd.merge(
         metricas_op,
-        medias_gerais.rename(columns={'tpatend': 'meta_tempo'}),
+        medias_gerais,
         on='OPERAÇÃO',
-        how='left'
+        suffixes=('', '_geral')
     )
-    
-    # Calcular variação em relação à média geral
-    metricas_op['variacao'] = ((metricas_op['tpatend'] - metricas_op['meta_tempo']) / 
-                              metricas_op['meta_tempo'] * 100)
     
     return metricas_op
 
@@ -67,87 +64,83 @@ def criar_grafico_operacoes(metricas_op):
     dados_qtd = metricas_op.sort_values('id', ascending=True)
     dados_tempo = metricas_op.sort_values('tpatend', ascending=False)
 
-    # Criar rótulos personalizados para tempo médio com cores
-    tempo_labels = []
-    for i, row in dados_tempo.iterrows():
-        var_pct = ((row['tpatend'] - row['meta_tempo']) / row['meta_tempo'] * 100)
-        # Verde se negativo (mais rápido), vermelho se positivo (mais lento)
-        cor = 'red' if var_pct > 0 else 'green'
-        tempo_labels.append(
-            f"<b>{row['tpatend']:.1f} min <span style='color: {cor}'>({var_pct:+.1f}%)</span></b>"
-        )
-
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=("<b>Quantidade de Atendimentos</b>", "<b>Tempo Médio de Atendimento</b>"),
         specs=[[{"type": "bar"}, {"type": "bar"}]],
-        horizontal_spacing=0.20,  # Aumentado de 0.15 para 0.20
-        column_widths=[0.35, 0.65]  # Define proporção 35%-65% entre as colunas
+        horizontal_spacing=0.15
     )
     
-    # Gráfico de quantidade - barra horizontal
+    # Gráfico de quantidade com linha de média dentro da barra
     fig.add_trace(
         go.Bar(
             y=dados_qtd['OPERAÇÃO'],
             x=dados_qtd['id'],
             name="<b>Atendimentos</b>",
             text=["<b>" + str(val) + "</b>" for val in dados_qtd['id']],
-            textposition='inside',
-            insidetextanchor='start',  # Alinha o texto no início da barra
-            marker_color='royalblue',
+            textposition='auto',
+            marker=dict(
+                color='royalblue',
+                pattern_shape="|",  # Adiciona linha vertical
+                pattern_solidity=0.5,  # Transparência da linha
+            ),
             orientation='h'
         ),
         row=1, col=1
     )
     
-    # Gráfico de tempo médio com rótulos personalizados
+    # Gráfico de tempo médio com linha de média dentro da barra
     fig.add_trace(
         go.Bar(
             y=dados_tempo['OPERAÇÃO'],
             x=dados_tempo['tpatend'],
             name="<b>Tempo Médio</b>",
-            text=tempo_labels,
-            textposition='inside',
-            insidetextanchor='start',  # Alinha o texto no início da barra
-            marker_color='lightblue',
+            text=["<b>" + str(round(val, 1)) + "</b>" for val in dados_tempo['tpatend']],
+            textposition='auto',
+            marker=dict(
+                color='lightblue',
+                pattern_shape="|",  # Adiciona linha vertical
+                pattern_solidity=0.5,  # Transparência da linha
+            ),
             orientation='h'
         ),
         row=1, col=2
     )
+    
+    # Atualizar layout com anotações para as médias gerais
+    for i, row in dados_qtd.iterrows():
+        fig.add_annotation(
+            y=row['OPERAÇÃO'],
+            x=row['id_geral'],
+            text=f"<b>|</b>",  # Linha vertical
+            showarrow=False,
+            font=dict(size=20, color='red'),
+            xanchor='center',
+            row=1, col=1
+        )
+    
+    for i, row in dados_tempo.iterrows():
+        fig.add_annotation(
+            y=row['OPERAÇÃO'],
+            x=row['tpatend_geral'],
+            text=f"<b>|</b>",  # Linha vertical
+            showarrow=False,
+            font=dict(size=20, color='red'),
+            xanchor='center',
+            row=1, col=2
+        )
 
-    # Adicionar linha de meta por operação (sem ajuste necessário agora)
-    fig.add_trace(
-        go.Scatter(
-            y=dados_tempo['OPERAÇÃO'],
-            x=dados_tempo['meta_tempo'],
-            name="<b>Meta (Média Geral)</b>",
-            mode='lines+markers',
-            line=dict(color='red', dash='dash'),
-            marker=dict(symbol='diamond', size=8)
-        ),
-        row=1, col=2
-    )
-
-    # Calcular o valor máximo para o eixo X do gráfico de tempo
-    max_tempo = max(dados_tempo['tpatend'].max(), dados_tempo['meta_tempo'].max())
-    # Reduzir margem pois os rótulos agora estão dentro
-    max_tempo_with_margin = max_tempo * 1.1
-
-    # Atualizar layout com margens reduzidas
+    # Atualizar layout
     fig.update_layout(
-        height=max(400, len(metricas_op) * 40),
+        height=max(400, len(metricas_op) * 40),  # Altura dinâmica baseada no número de operações
         showlegend=True,
         title_text="<b>Análise por Operação</b>",
-        margin=dict(t=50, b=20, l=20, r=50)  # Margem direita reduzida
+        margin=dict(t=50, b=20, l=20, r=20)  # Ajustar margens
     )
-
-    # Atualizar eixos com limites definidos
+    
+    # Atualizar eixos
     fig.update_xaxes(title_text="<b>Quantidade</b>", row=1, col=1)
-    fig.update_xaxes(
-        title_text="<b>Minutos</b>",
-        range=[0, max_tempo_with_margin],  # Define limite do eixo X
-        row=1, col=2
-    )
+    fig.update_xaxes(title_text="<b>Minutos</b>", row=1, col=2)
     fig.update_yaxes(title_text="", row=1, col=1)
     fig.update_yaxes(title_text="", row=1, col=2)
     
@@ -283,10 +276,8 @@ def mostrar_aba(dados, filtros):
             with col3:
                 meta_media = metricas_op['meta_tempo'].mean()
                 variacao = ((tempo_medio - meta_media) / meta_media * 100)
-                # Emoji verde se mais rápido (negativo), vermelho se mais lento (positivo)
-                status_emoji = "🟢" if variacao < 0 else "🔴"
                 st.metric(
-                    f"Variação da Meta {status_emoji}",
+                    "Variação da Meta",
                     f"{variacao:+.1f}%",
                     delta_color="inverse"
                 )

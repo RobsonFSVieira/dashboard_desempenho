@@ -283,10 +283,8 @@ def mostrar_aba(dados, filtros):
             with col3:
                 meta_media = metricas_op['meta_tempo'].mean()
                 variacao = ((tempo_medio - meta_media) / meta_media * 100)
-                # Emoji verde se mais rápido (negativo), vermelho se mais lento (positivo)
-                status_emoji = "🟢" if variacao < 0 else "🔴"
                 st.metric(
-                    f"Variação da Meta {status_emoji}",
+                    "Variação da Meta",
                     f"{variacao:+.1f}%",
                     delta_color="inverse"
                 )

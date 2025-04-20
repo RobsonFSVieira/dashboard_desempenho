@@ -67,33 +67,29 @@ def criar_grafico_operacoes(metricas_op):
     dados_qtd = metricas_op.sort_values('id', ascending=True)
     dados_tempo = metricas_op.sort_values('tpatend', ascending=False)
 
-    # Criar rótulos personalizados para tempo médio com cores
+    # Criar rótulos personalizados para tempo médio
     tempo_labels = []
     for i, row in dados_tempo.iterrows():
         var_pct = ((row['tpatend'] - row['meta_tempo']) / row['meta_tempo'] * 100)
-        # Verde se negativo (mais rápido), vermelho se positivo (mais lento)
-        cor = 'red' if var_pct > 0 else 'green'
         tempo_labels.append(
-            f"<b>{row['tpatend']:.1f} min <span style='color: {cor}'>({var_pct:+.1f}%)</span></b>"
+            f"<b>{row['tpatend']:.1f} min ({var_pct:+.1f}%)</b>"
         )
 
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=("<b>Quantidade de Atendimentos</b>", "<b>Tempo Médio de Atendimento</b>"),
         specs=[[{"type": "bar"}, {"type": "bar"}]],
-        horizontal_spacing=0.20,  # Aumentado de 0.15 para 0.20
-        column_widths=[0.35, 0.65]  # Define proporção 35%-65% entre as colunas
+        horizontal_spacing=0.15
     )
     
-    # Gráfico de quantidade - barra horizontal
+    # Gráfico de quantidade - barra horizontal (maiores quantidades no topo)
     fig.add_trace(
         go.Bar(
             y=dados_qtd['OPERAÇÃO'],
             x=dados_qtd['id'],
             name="<b>Atendimentos</b>",
             text=["<b>" + str(val) + "</b>" for val in dados_qtd['id']],
-            textposition='inside',
-            insidetextanchor='start',  # Alinha o texto no início da barra
+            textposition='outside',
             marker_color='royalblue',
             orientation='h'
         ),
@@ -107,15 +103,14 @@ def criar_grafico_operacoes(metricas_op):
             x=dados_tempo['tpatend'],
             name="<b>Tempo Médio</b>",
             text=tempo_labels,
-            textposition='inside',
-            insidetextanchor='start',  # Alinha o texto no início da barra
+            textposition='outside',
             marker_color='lightblue',
             orientation='h'
         ),
         row=1, col=2
     )
-
-    # Adicionar linha de meta por operação (sem ajuste necessário agora)
+    
+    # Adicionar linha de meta por operação
     fig.add_trace(
         go.Scatter(
             y=dados_tempo['OPERAÇÃO'],
@@ -127,27 +122,18 @@ def criar_grafico_operacoes(metricas_op):
         ),
         row=1, col=2
     )
-
-    # Calcular o valor máximo para o eixo X do gráfico de tempo
-    max_tempo = max(dados_tempo['tpatend'].max(), dados_tempo['meta_tempo'].max())
-    # Reduzir margem pois os rótulos agora estão dentro
-    max_tempo_with_margin = max_tempo * 1.1
-
-    # Atualizar layout com margens reduzidas
+    
+    # Atualizar layout para acomodar os rótulos externos
     fig.update_layout(
         height=max(400, len(metricas_op) * 40),
         showlegend=True,
         title_text="<b>Análise por Operação</b>",
-        margin=dict(t=50, b=20, l=20, r=50)  # Margem direita reduzida
+        margin=dict(t=50, b=20, l=20, r=100)
     )
-
-    # Atualizar eixos com limites definidos
+    
+    # Atualizar eixos com mais espaço para os rótulos
     fig.update_xaxes(title_text="<b>Quantidade</b>", row=1, col=1)
-    fig.update_xaxes(
-        title_text="<b>Minutos</b>",
-        range=[0, max_tempo_with_margin],  # Define limite do eixo X
-        row=1, col=2
-    )
+    fig.update_xaxes(title_text="<b>Minutos</b>", row=1, col=2)
     fig.update_yaxes(title_text="", row=1, col=1)
     fig.update_yaxes(title_text="", row=1, col=2)
     
@@ -283,10 +269,8 @@ def mostrar_aba(dados, filtros):
             with col3:
                 meta_media = metricas_op['meta_tempo'].mean()
                 variacao = ((tempo_medio - meta_media) / meta_media * 100)
-                # Emoji verde se mais rápido (negativo), vermelho se mais lento (positivo)
-                status_emoji = "🟢" if variacao < 0 else "🔴"
                 st.metric(
-                    f"Variação da Meta {status_emoji}",
+                    "Variação da Meta",
                     f"{variacao:+.1f}%",
                     delta_color="inverse"
                 )
