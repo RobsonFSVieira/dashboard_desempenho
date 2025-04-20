@@ -70,8 +70,8 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         df_comp['variacao'] = ((df_comp['tpatend_p2'] - df_comp['tpatend_p1']) / 
                               df_comp['tpatend_p1'] * 100)
         
-        # Ordena por tempo do período 2 decrescente (maiores tempos no topo)
-        df_comp = df_comp.sort_values('tpatend_p2', ascending=False)
+        # Ordena por tempo do período 2 crescente (colaboradores mais rápidos no topo)
+        df_comp = df_comp.sort_values('tpatend_p2', ascending=True)
         
         # Obtém cores do tema atual
         cores_tema = obter_cores_tema()
@@ -208,30 +208,29 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
+            status_emoji = "🟢" if var_media < 0 else "🔴"
             st.metric(
                 "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
-                delta_color="normal"
+                f"{var_media:+.1f}%",
+                delta=None,
+                help="Média das variações individuais"
             )
         
         with col2:
             melhor_var = df_merged.loc[df_merged['variacao'].idxmin()]
             st.metric(
-                "Maior Redução (Melhor)",
-                melhor_var['usuário'],  # Nome do usuário como valor principal
-                f"{melhor_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                "Maior Redução",
+                f"{melhor_var['variacao']:.1f}%",
+                f"{melhor_var['usuário']}",
+                delta_color="inverse"
             )
         
         with col3:
             pior_var = df_merged.loc[df_merged['variacao'].idxmax()]
             st.metric(
-                "Maior Aumento (Pior)",
-                pior_var['usuário'],  # Nome do usuário como valor principal
-                f"{pior_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                "Maior Aumento",
+                f"{pior_var['variacao']:.1f}%",
+                f"{pior_var['usuário']}"
             )
         
         # Tabela detalhada

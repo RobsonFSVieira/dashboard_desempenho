@@ -208,30 +208,30 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
+            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']
             st.metric(
                 "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
-                delta_color="normal"
+                f"{var_media:+.1f}%",  # Porcentagem como valor principal (maior)
+                var_media_usuario,  # Nome do usuário como delta (menor)
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         with col2:
             melhor_var = df_merged.loc[df_merged['variacao'].idxmin()]
             st.metric(
                 "Maior Redução (Melhor)",
-                melhor_var['usuário'],  # Nome do usuário como valor principal
-                f"{melhor_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                f"{melhor_var['variacao']:.1f}%",  # Porcentagem como valor principal (maior)
+                melhor_var['usuário'],  # Nome do usuário como delta (menor)
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         with col3:
             pior_var = df_merged.loc[df_merged['variacao'].idxmax()]
             st.metric(
                 "Maior Aumento (Pior)",
-                pior_var['usuário'],  # Nome do usuário como valor principal
-                f"{pior_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                f"{pior_var['variacao']:.1f}%",  # Porcentagem como valor principal (maior)
+                pior_var['usuário'],  # Nome do usuário como delta (menor)
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         # Tabela detalhada

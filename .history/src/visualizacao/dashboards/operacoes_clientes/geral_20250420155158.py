@@ -54,9 +54,9 @@ def calcular_metricas_gerais(dados, filtros):
             'media_permanencia': 0
         }
     
-    # Identificar período disponível nos dados - Corrigido para usar o mesmo método de mov_cliente.py
-    data_mais_antiga = df['retirada'].dt.date.min()
-    data_mais_recente = df['retirada'].dt.date.max()
+    # Identificar período disponível nos dados - Corrigido para usar datetime.date()
+    data_mais_antiga = df['retirada'].min().date()
+    data_mais_recente = df['retirada'].max().date()
     
     # Validar se as datas estão dentro do período disponível
     if (filtros['periodo2']['inicio'] < data_mais_antiga or 

@@ -208,29 +208,30 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
             st.metric(
                 "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
+                f"{var_media:+.1f}%",
+                delta=var_media,
                 delta_color="normal"
             )
         
         with col2:
             melhor_var = df_merged.loc[df_merged['variacao'].idxmin()]
+            st.markdown(f"**Maior Redução (Melhor)**")
             st.metric(
-                "Maior Redução (Melhor)",
-                melhor_var['usuário'],  # Nome do usuário como valor principal
-                f"{melhor_var['variacao']:.1f}%",  # Variação como delta
+                melhor_var['usuário'],
+                f"{melhor_var['variacao']:.1f}%",
+                delta=melhor_var['variacao'],
                 delta_color="normal"
             )
         
         with col3:
             pior_var = df_merged.loc[df_merged['variacao'].idxmax()]
+            st.markdown(f"**Maior Aumento (Pior)**")
             st.metric(
-                "Maior Aumento (Pior)",
-                pior_var['usuário'],  # Nome do usuário como valor principal
-                f"{pior_var['variacao']:.1f}%",  # Variação como delta
+                pior_var['usuário'],
+                f"{pior_var['variacao']:.1f}%",
+                delta=pior_var['variacao'],
                 delta_color="normal"
             )
         

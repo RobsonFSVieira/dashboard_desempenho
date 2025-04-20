@@ -208,11 +208,10 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
             st.metric(
                 "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
+                f"{var_media:+.1f}%",
+                delta=var_media,  # Número positivo -> seta vermelha para cima, negativo -> seta verde para baixo
                 delta_color="normal"
             )
         

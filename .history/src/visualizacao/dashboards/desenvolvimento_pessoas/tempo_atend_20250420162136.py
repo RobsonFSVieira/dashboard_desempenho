@@ -208,30 +208,31 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
             st.metric(
                 "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
-                delta_color="normal"
+                f"{var_media:+.1f}%",
+                delta=var_media,  # Adiciona variação como delta
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         with col2:
             melhor_var = df_merged.loc[df_merged['variacao'].idxmin()]
+            st.markdown(f"**Maior Redução (Melhor)**")
             st.metric(
-                "Maior Redução (Melhor)",
-                melhor_var['usuário'],  # Nome do usuário como valor principal
-                f"{melhor_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                melhor_var['usuário'],
+                f"{melhor_var['variacao']:.1f}%",
+                delta=melhor_var['variacao'],  # Adiciona variação como delta
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         with col3:
             pior_var = df_merged.loc[df_merged['variacao'].idxmax()]
+            st.markdown(f"**Maior Aumento (Pior)**")
             st.metric(
-                "Maior Aumento (Pior)",
-                pior_var['usuário'],  # Nome do usuário como valor principal
-                f"{pior_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
+                pior_var['usuário'],
+                f"{pior_var['variacao']:.1f}%",
+                delta=pior_var['variacao'],  # Adiciona variação como delta
+                delta_color="normal"  # normal: negativo=verde/baixo, positivo=vermelho/cima
             )
         
         # Tabela detalhada
