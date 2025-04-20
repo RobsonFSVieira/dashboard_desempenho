@@ -343,11 +343,10 @@ def mostrar_aba(dados, filtros):
                 )
             
             with col4:
-                # TODO: Implementar cálculo de ociosidade quando disponível
-                tempo_ociosidade = 0  # Placeholder até implementação
+                tempo_espera = metricas_op['tpesper'].mean()
                 st.metric(
-                    "Tempo Médio de Ociosidade",
-                    f"{tempo_ociosidade:.1f} min"
+                    "Tempo Médio de Espera",
+                    f"{tempo_espera:.1f} min"
                 )
             
             # Gráficos

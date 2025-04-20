@@ -161,11 +161,6 @@ def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
         (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
         (df['retirada'].dt.date <= filtros['periodo2']['fim'])
     )
-    
-    # Calcular média geral do período para comparação
-    df_periodo = df[mask]
-    meta_geral = df_periodo['tpatend'].mean() / 60
-    
     df_filtrado = df[mask & (df['usuário'] == colaborador)]
     
     # Agrupar por dia
@@ -175,22 +170,18 @@ def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
     }).reset_index()
     
     evolucao['tpatend'] = evolucao['tpatend'] / 60
-    # Calcular variação diária em relação à meta
-    evolucao['variacao'] = ((evolucao['tpatend'] - meta_geral) / meta_geral * 100)
 
     # Formatar período para exibição
     periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
               f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
 
     fig = make_subplots(
-        rows=1, cols=3,  # Aumentado para 3 colunas
+        rows=1, cols=2,
         subplot_titles=(
-            "Atendimentos por Dia",
-            "Tempo Médio por Dia",
-            f"Variação da Meta ({periodo})"
+            f"Atendimentos por Dia",
+            f"Tempo Médio por Dia ({periodo})"
         ),
-        specs=[[{"type": "scatter"}, {"type": "scatter"}, {"type": "scatter"}]],
-        column_widths=[0.33, 0.33, 0.34]  # Distribuição do espaço
+        specs=[[{"type": "scatter"}, {"type": "scatter"}]]
     )
     
     fig.add_trace(
@@ -215,42 +206,11 @@ def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
         row=1, col=2
     )
     
-    # Adicionar gráfico de variação com linha única
-    fig.add_trace(
-        go.Scatter(
-            x=evolucao['retirada'],
-            y=evolucao['variacao'],
-            mode='lines+markers',
-            name="Variação",
-            line=dict(
-                width=2,
-                color="red"  # Cor base da linha
-            ),
-            marker=dict(
-                color=['green' if var < 0 else 'red' for var in evolucao['variacao']],
-                size=8
-            ),
-            hovertemplate='Data: %{x}<br>Variação: %{y:.1f}%<extra></extra>'
-        ),
-        row=1, col=3
-    )
-
-    # Linha de referência no zero
-    fig.add_hline(
-        y=0,
-        line_dash="dash",
-        line_color="gray",
-        row=1, col=3
-    )
-    
     fig.update_layout(
         height=400,
         showlegend=True,
         title_text=f"Evolução Diária ({periodo})"
     )
-    
-    # Atualizar eixo Y do gráfico de variação
-    fig.update_yaxes(title_text="Variação (%)", row=1, col=3)
     
     return fig
 
@@ -316,7 +276,7 @@ def mostrar_aba(dados, filtros):
             metricas_op = analisar_colaborador(dados, filtros, colaborador, adicional_filters)
             
             # Métricas principais
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.metric(
@@ -342,14 +302,6 @@ def mostrar_aba(dados, filtros):
                     delta_color="inverse"
                 )
             
-            with col4:
-                # TODO: Implementar cálculo de ociosidade quando disponível
-                tempo_ociosidade = 0  # Placeholder até implementação
-                st.metric(
-                    "Tempo Médio de Ociosidade",
-                    f"{tempo_ociosidade:.1f} min"
-                )
-            
             # Gráficos
             st.plotly_chart(criar_grafico_operacoes(metricas_op), use_container_width=True)
             st.plotly_chart(criar_grafico_evolucao_diaria(dados, filtros, colaborador), use_container_width=True)
@@ -357,109 +309,35 @@ def mostrar_aba(dados, filtros):
             # Análise Detalhada
             st.subheader("📊 Análise Detalhada")
             with st.expander("Ver análise", expanded=True):
-                # Criar 4 colunas principais
-                col_perf1, col_perf2, col_perf3, col_insights = st.columns([0.25, 0.25, 0.25, 0.25])
-                
-                # Dividir operações em 3 partes
-                tamanho_parte = len(metricas_op) // 3
-                resto = len(metricas_op) % 3
-                
-                # Ajustar distribuição para acomodar o resto
-                indices = [
-                    (0, tamanho_parte + (1 if resto > 0 else 0)),
-                    (tamanho_parte + (1 if resto > 0 else 0), 2*tamanho_parte + (2 if resto > 1 else 1 if resto > 0 else 0)),
-                    (2*tamanho_parte + (2 if resto > 1 else 1 if resto > 0 else 0), len(metricas_op))
-                ]
-
-                # Primeira coluna de performance
-                with col_perf1:
-                    st.write("#### Performance (1/3)")
-                    for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if i < indices[0][1]:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
-                            st.write(
-                                f"**{row['OPERAÇÃO']}** {status}\n\n"
-                                f"- Atendimentos: {row['id']}\n"
-                                f"- Tempo Médio: {row['tpatend']:.1f} min\n"
-                                f"- Meta: {row['meta_tempo']:.1f} min\n"
-                                f"- Variação: {row['variacao']:+.1f}%"
-                            )
-
-                # Segunda coluna de performance
-                with col_perf2:
-                    st.write("#### Performance (2/3)")
-                    for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if indices[0][1] <= i < indices[1][1]:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
-                            st.write(
-                                f"**{row['OPERAÇÃO']}** {status}\n\n"
-                                f"- Atendimentos: {row['id']}\n"
-                                f"- Tempo Médio: {row['tpatend']:.1f} min\n"
-                                f"- Meta: {row['meta_tempo']:.1f} min\n"
-                                f"- Variação: {row['variacao']:+.1f}%"
-                            )
-                
-                # Terceira coluna de performance
-                with col_perf3:
-                    st.write("#### Performance (3/3)")
-                    for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if indices[1][1] <= i:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
-                            st.write(
-                                f"**{row['OPERAÇÃO']}** {status}\n\n"
-                                f"- Atendimentos: {row['id']}\n"
-                                f"- Tempo Médio: {row['tpatend']:.1f} min\n"
-                                f"- Meta: {row['meta_tempo']:.1f} min\n"
-                                f"- Variação: {row['variacao']:+.1f}%"
-                            )
-
-                # Coluna de insights (mantida como estava)
-                with col_insights:
-                    st.write("#### 📈 Insights")
-                    
-                    # Box para pontos fortes
-                    st.markdown("""
-                        <style>
-                            .success-box { 
-                                background-color: rgba(0,255,0,0.1);
-                                padding: 10px;
-                                border-radius: 5px;
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-                    
-                    melhor_op = metricas_op.loc[metricas_op['variacao'].abs().idxmin()]
-                    st.markdown(
-                        f"<div class='success-box'>"
-                        f"<b>🎯 Melhor Performance</b><br>"
-                        f"{melhor_op['OPERAÇÃO']}<br>"
-                        f"Variação: {melhor_op['variacao']:+.1f}%"
-                        f"</div>",
-                        unsafe_allow_html=True
+                # Performance por operação
+                st.write("#### Performance por Operação")
+                for _, row in metricas_op.iterrows():
+                    status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
+                    st.write(
+                        f"**{row['OPERAÇÃO']}** {status}\n\n"
+                        f"- Atendimentos: {row['id']}\n"
+                        f"- Tempo Médio: {row['tpatend']:.1f} min\n"
+                        f"- Meta: {row['meta_tempo']:.1f} min\n"
+                        f"- Variação: {row['variacao']:+.1f}%"
                     )
-                    
-                    # Box para pontos de melhoria
-                    pior_op = metricas_op.loc[metricas_op['variacao'].abs().idxmax()]
-                    if abs(pior_op['variacao']) > 10:
-                        st.markdown("""
-                            <style>
-                                .warning-box { 
-                                    background-color: rgba(255,0,0,0.1);
-                                    padding: 10px;
-                                    border-radius: 5px;
-                                    margin-top: 10px;
-                                }
-                            </style>
-                        """, unsafe_allow_html=True)
-                        
-                        st.markdown(
-                            f"<div class='warning-box'>"
-                            f"<b>⚠️ Oportunidade de Melhoria</b><br>"
-                            f"{pior_op['OPERAÇÃO']}<br>"
-                            f"Variação: {pior_op['variacao']:+.1f}%"
-                            f"</div>",
-                            unsafe_allow_html=True
-                        )
+                
+                # Insights gerais
+                st.write("#### 📈 Insights")
+                
+                # Identificar pontos fortes
+                melhor_op = metricas_op.loc[metricas_op['variacao'].abs().idxmin()]
+                st.write(
+                    f"- Melhor performance em **{melhor_op['OPERAÇÃO']}** "
+                    f"(variação de {melhor_op['variacao']:+.1f}%)"
+                )
+                
+                # Identificar pontos de melhoria
+                pior_op = metricas_op.loc[metricas_op['variacao'].abs().idxmax()]
+                if abs(pior_op['variacao']) > 10:
+                    st.write(
+                        f"- Oportunidade de melhoria em **{pior_op['OPERAÇÃO']}** "
+                        f"(variação de {pior_op['variacao']:+.1f}%)"
+                    )
                 
     except Exception as e:
         st.error("Erro ao analisar dados do colaborador")

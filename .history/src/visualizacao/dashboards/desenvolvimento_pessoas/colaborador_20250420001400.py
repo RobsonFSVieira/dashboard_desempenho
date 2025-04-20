@@ -343,11 +343,10 @@ def mostrar_aba(dados, filtros):
                 )
             
             with col4:
-                # TODO: Implementar cálculo de ociosidade quando disponível
-                tempo_ociosidade = 0  # Placeholder até implementação
+                tempo_espera = metricas_op['tpesper'].mean()
                 st.metric(
-                    "Tempo Médio de Ociosidade",
-                    f"{tempo_ociosidade:.1f} min"
+                    "Tempo Médio de Espera",
+                    f"{tempo_espera:.1f} min"
                 )
             
             # Gráficos
@@ -357,40 +356,21 @@ def mostrar_aba(dados, filtros):
             # Análise Detalhada
             st.subheader("📊 Análise Detalhada")
             with st.expander("Ver análise", expanded=True):
-                # Criar 4 colunas principais
-                col_perf1, col_perf2, col_perf3, col_insights = st.columns([0.25, 0.25, 0.25, 0.25])
+                # Criar 2 colunas principais
+                col_perf, col_insights = st.columns([0.7, 0.3])
                 
-                # Dividir operações em 3 partes
-                tamanho_parte = len(metricas_op) // 3
-                resto = len(metricas_op) % 3
-                
-                # Ajustar distribuição para acomodar o resto
-                indices = [
-                    (0, tamanho_parte + (1 if resto > 0 else 0)),
-                    (tamanho_parte + (1 if resto > 0 else 0), 2*tamanho_parte + (2 if resto > 1 else 1 if resto > 0 else 0)),
-                    (2*tamanho_parte + (2 if resto > 1 else 1 if resto > 0 else 0), len(metricas_op))
-                ]
-
-                # Primeira coluna de performance
-                with col_perf1:
-                    st.write("#### Performance (1/3)")
+                with col_perf:
+                    st.write("#### Performance por Operação")
+                    # Dividir operações em 2 colunas
+                    ops_por_coluna = len(metricas_op) // 2 + len(metricas_op) % 2
+                    col1, col2 = st.columns(2)
+                    
                     for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if i < indices[0][1]:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
-                            st.write(
-                                f"**{row['OPERAÇÃO']}** {status}\n\n"
-                                f"- Atendimentos: {row['id']}\n"
-                                f"- Tempo Médio: {row['tpatend']:.1f} min\n"
-                                f"- Meta: {row['meta_tempo']:.1f} min\n"
-                                f"- Variação: {row['variacao']:+.1f}%"
-                            )
-
-                # Segunda coluna de performance
-                with col_perf2:
-                    st.write("#### Performance (2/3)")
-                    for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if indices[0][1] <= i < indices[1][1]:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
+                        # Determinar em qual coluna mostrar
+                        col = col1 if i < ops_por_coluna else col2
+                        status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
+                        
+                        with col:
                             st.write(
                                 f"**{row['OPERAÇÃO']}** {status}\n\n"
                                 f"- Atendimentos: {row['id']}\n"
@@ -399,21 +379,6 @@ def mostrar_aba(dados, filtros):
                                 f"- Variação: {row['variacao']:+.1f}%"
                             )
                 
-                # Terceira coluna de performance
-                with col_perf3:
-                    st.write("#### Performance (3/3)")
-                    for i, (_, row) in enumerate(metricas_op.iterrows()):
-                        if indices[1][1] <= i:
-                            status = "✅" if abs(row['variacao']) <= 10 else "⚠️"
-                            st.write(
-                                f"**{row['OPERAÇÃO']}** {status}\n\n"
-                                f"- Atendimentos: {row['id']}\n"
-                                f"- Tempo Médio: {row['tpatend']:.1f} min\n"
-                                f"- Meta: {row['meta_tempo']:.1f} min\n"
-                                f"- Variação: {row['variacao']:+.1f}%"
-                            )
-
-                # Coluna de insights (mantida como estava)
                 with col_insights:
                     st.write("#### 📈 Insights")
                     
