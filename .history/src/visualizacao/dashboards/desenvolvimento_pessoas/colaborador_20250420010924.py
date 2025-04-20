@@ -311,26 +311,13 @@ def mostrar_aba(dados, filtros):
             )
 
         with col4:
-            # Obter lista de datas disponíveis no período
-            mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
+            data_especifica = st.date_input(
+                "Data Específica (opcional)",
+                value=None,
+                format="DD/MM/YYYY",
+                help="Selecione uma data específica para análise"
             )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
-            datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
-            
-            data_selecionada = st.selectbox(
-                "Selecione a Data",
-                options=datas_opcoes,
-                help="Escolha uma data específica ou 'Todas' para ver o período completo"
-            )
-            
-            # Conversão da data selecionada
-            data_especifica = None
-            if data_selecionada != "Todas":
-                dia, mes, ano = map(int, data_selecionada.split('/'))
-                data_especifica = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
-
+        
         if colaborador:
             # Análise do colaborador com filtros adicionais
             adicional_filters = {

@@ -1,6 +1,6 @@
 import streamlit as st
 from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii, gates_hora
-from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend
+from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
@@ -73,7 +73,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             tabs = st.tabs([
                 "Visão Geral",
                 "Colaborador",
-                "Tempo de Atendimento"
+                "Tempo de Atendimento"  # Nova aba
             ])
             
             with tabs[0]:
@@ -87,10 +87,10 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                     colaborador.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Colaborador: {str(e)}")
-            
-            with tabs[2]:
+
+            with tabs[2]:  # Nova aba
                 try:
-                    dp_tempo_atend.mostrar_aba(dados, filtros)
+                    tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
 

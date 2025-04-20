@@ -33,9 +33,9 @@ def analisar_colaborador(dados, filtros, colaborador, adicional_filters=None):
         
         if adicional_filters['cliente'] != "Todos":
             mask &= (df['CLIENTE'] == adicional_filters['cliente'])
-            
-        if adicional_filters['data_especifica']:
-            mask &= (df['retirada'].dt.date == adicional_filters['data_especifica'])
+        
+        if 'data' in adicional_filters and adicional_filters['data'] is not None:
+            mask &= (df['retirada'].dt.date == adicional_filters['data'])
     
     df_filtrado = df[mask]
     
@@ -285,7 +285,7 @@ def mostrar_aba(dados, filtros):
         
         # Linha de seletores
         col1, col2, col3, col4 = st.columns(4)
-        
+
         with col1:
             colaboradores = sorted(dados['base']['usuário'].unique())
             colaborador = st.selectbox(
@@ -309,36 +309,30 @@ def mostrar_aba(dados, filtros):
                 options=clientes,
                 help="Filtre por cliente específico"
             )
-
+            
         with col4:
-            # Obter lista de datas disponíveis no período
-            mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
-            datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
-            
-            data_selecionada = st.selectbox(
+            datas = ["Todas"] + sorted(df['retirada'].dt.date.unique())
+            data = st.selectbox(
                 "Selecione a Data",
-                options=datas_opcoes,
-                help="Escolha uma data específica ou 'Todas' para ver o período completo"
+                options=datas,
+                format_func=lambda x: x.strftime('%d/%m/%Y') if isinstance(x, pd.Timestamp) else x,
+                help="Filtre por data específica",
+                index=len(datas)-1  # Seleciona a data mais recente por padrão
             )
-            
-            # Conversão da data selecionada
-            data_especifica = None
-            if data_selecionada != "Todas":
-                dia, mes, ano = map(int, data_selecionada.split('/'))
-                data_especifica = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
 
         if colaborador:
             # Análise do colaborador com filtros adicionais
             adicional_filters = {
                 'turno': turno,
                 'cliente': cliente,
-                'data_especifica': data_especifica
+                'data': None if data == "Todas" else data  # Só aplica filtro de data se não for "Todas"
             }
             metricas_op = analisar_colaborador(dados, filtros, colaborador, adicional_filters)
+            
+            # Verificar se há dados para análise
+            if metricas_op.empty:
+                st.warning("⚠️ Não há dados disponíveis para o período e filtros selecionados.")
+                return
             
             # Métricas principais
             col1, col2, col3, col4 = st.columns(4)
@@ -438,54 +432,57 @@ def mostrar_aba(dados, filtros):
                                 f"- Variação: {row['variacao']:+.1f}%"
                             )
 
-                # Coluna de insights (mantida como estava)
+                # Coluna de insights com validação
                 with col_insights:
                     st.write("#### 📈 Insights")
                     
-                    # Box para pontos fortes
-                    st.markdown("""
-                        <style>
-                            .success-box { 
-                                background-color: rgba(0,255,0,0.1);
-                                padding: 10px;
-                                border-radius: 5px;
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-                    
-                    melhor_op = metricas_op.loc[metricas_op['variacao'].abs().idxmin()]
-                    st.markdown(
-                        f"<div class='success-box'>"
-                        f"<b>🎯 Melhor Performance</b><br>"
-                        f"{melhor_op['OPERAÇÃO']}<br>"
-                        f"Variação: {melhor_op['variacao']:+.1f}%"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-                    
-                    # Box para pontos de melhoria
-                    pior_op = metricas_op.loc[metricas_op['variacao'].abs().idxmax()]
-                    if abs(pior_op['variacao']) > 10:
+                    if not metricas_op.empty and len(metricas_op) > 0:
+                        # Box para pontos fortes
                         st.markdown("""
                             <style>
-                                .warning-box { 
-                                    background-color: rgba(255,0,0,0.1);
+                                .success-box { 
+                                    background-color: rgba(0,255,0,0.1);
                                     padding: 10px;
                                     border-radius: 5px;
-                                    margin-top: 10px;
                                 }
                             </style>
                         """, unsafe_allow_html=True)
                         
+                        melhor_op = metricas_op.loc[metricas_op['variacao'].abs().idxmin()]
                         st.markdown(
-                            f"<div class='warning-box'>"
-                            f"<b>⚠️ Oportunidade de Melhoria</b><br>"
-                            f"{pior_op['OPERAÇÃO']}<br>"
-                            f"Variação: {pior_op['variacao']:+.1f}%"
+                            f"<div class='success-box'>"
+                            f"<b>🎯 Melhor Performance</b><br>"
+                            f"{melhor_op['OPERAÇÃO']}<br>"
+                            f"Variação: {melhor_op['variacao']:+.1f}%"
                             f"</div>",
                             unsafe_allow_html=True
                         )
+                        
+                        # Box para pontos de melhoria
+                        pior_op = metricas_op.loc[metricas_op['variacao'].abs().idxmax()]
+                        if abs(pior_op['variacao']) > 10:
+                            st.markdown("""
+                                <style>
+                                    .warning-box { 
+                                        background-color: rgba(255,0,0,0.1);
+                                        padding: 10px;
+                                        border-radius: 5px;
+                                        margin-top: 10px;
+                                    }
+                                </style>
+                            """, unsafe_allow_html=True)
+                            
+                            st.markdown(
+                                f"<div class='warning-box'>"
+                                f"<b>⚠️ Oportunidade de Melhoria</b><br>"
+                                f"{pior_op['OPERAÇÃO']}<br>"
+                                f"Variação: {pior_op['variacao']:+.1f}%"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        st.info("Não há dados suficientes para gerar insights.")
                 
     except Exception as e:
-        st.error("Erro ao analisar dados do colaborador")
+        st.error(f"Erro ao analisar dados do colaborador: {str(e)}")
         st.exception(e)
