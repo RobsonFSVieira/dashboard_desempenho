@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+.env
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Streamlit
+.streamlit/
+
+# Arquivos de dados
+*.xlsx
+*.xls
+*.csv
+
+# Logs
+*.log
