@@ -634,31 +634,31 @@ def mostrar_aba(dados, filtros):
         ### Como analisamos os Gates por Hora?
 
         1. **Análise Temporal**:
-        - **24 Horas**: Acompanhamento detalhado hora a hora
-        - **Períodos**: Manhã (6h-14h), Tarde (14h-22h), Noite (22h-6h)
-        - **Tendências**: Padrões de demanda ao longo do dia
+        - **Por Hora**: Acompanhamento detalhado dos gates ativos em cada hora
+        - **Distribuição**: Como os gates são alocados ao longo do dia
+        - **Eficiência**: Média de atendimentos por gate em cada período
 
-        2. **Métricas por Hora**:
-        - **Gates Ativos**: Quantidade de guichês operando
-        - **Atendimentos**: Volume de senhas atendidas
-        - **Média/Gate**: Produtividade por gate
+        2. **Métricas de Performance**:
+        - **Gates Ativos**: Quantidade de guichês operando em cada horário
+        - **Atendimentos**: Volume de senhas atendidas por hora
+        - **Média/Gate**: Produtividade média por gate em cada hora
 
-        3. **Indicadores de Performance**:
-        - ✅ Alta eficiência: > 80% da capacidade utilizada
-        - ⚠️ Baixa eficiência: < 50% da capacidade utilizada
-        - 📈 Tendência de uso dos gates
+        3. **Análise de Períodos**:
+        - **Manhã (07h-14h)**: Comportamento no primeiro turno
+        - **Tarde (15h-22h)**: Performance no segundo turno
+        - **Noite (23h-06h)**: Operação no período noturno
 
-        4. **Análise Detalhada**:
-        - 🎯 Timeline dos atendimentos
-        - 📊 Performance por gate
-        - ⚖️ Balanceamento de recursos
+        4. **Insights Operacionais**:
+        - 🎯 Horários de maior eficiência
+        - ⚠️ Momentos críticos de operação
+        - 📊 Sugestões de dimensionamento
 
-        5. **Insights Operacionais**:
-        - 🔍 Momentos críticos
-        - 💡 Sugestões de ajuste
-        - ⚠️ Alertas de capacidade
+        5. **Análise Detalhada**:
+        - Timeline detalhada dos atendimentos
+        - Performance individual dos gates
+        - Períodos de maior demanda
         """)
-
+    
     try:
         st.session_state['tema_atual'] = detectar_tema()
         
@@ -746,3 +746,5 @@ def mostrar_aba(dados, filtros):
     except Exception as e:
         st.error("Erro ao gerar a aba de Gates em Atividade/Hora")
         st.exception(e)
+</copilot-edited-file>
+```

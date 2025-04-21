@@ -480,7 +480,7 @@ def mostrar_aba(dados, filtros):
         with col1:
             st.metric(
                 "Total de Atendimentos",
-                f"{metricas['total_atendimentos']:,}".replace(',', '.'),
+                f"{metricas['total_atendimentos']:,} atendimentos",
                 help="Número total de atendimentos no período"
             )
         

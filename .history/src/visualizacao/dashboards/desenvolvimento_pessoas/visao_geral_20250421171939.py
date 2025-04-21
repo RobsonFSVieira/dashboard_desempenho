@@ -87,7 +87,7 @@ def criar_grafico_atendimentos(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 14, 'color': 'black'},  # Fonte maior e preta
         textposition='inside',
     )
     
@@ -129,7 +129,7 @@ def criar_grafico_tempo(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 14, 'color': 'black'},  # Fonte maior e preta
         textposition='inside',
     )
     
@@ -183,7 +183,7 @@ def criar_grafico_ociosidade(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 14, 'color': 'black'},  # Fonte maior e preta
         textposition='inside',
     )
     
@@ -304,8 +304,8 @@ def mostrar_aba(dados, filtros):
         
         with col1:
             st.metric(
-                "Total de Colaboradores", 
-                f"{len(metricas)} atendentes",
+                "Total de Atendimentos",
+                f"{len(metricas)} atendimentos",
                 help="Número de colaboradores ativos no período"
             )
         

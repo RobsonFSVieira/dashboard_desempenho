@@ -101,36 +101,6 @@ def mostrar_aba(dados, filtros):
     st.header("Gates em Atividade")
     st.write("Análise da quantidade de gates ativos em relação à demanda")
     
-    with st.expander("ℹ️ Como funciona?"):
-        st.markdown("""
-        ### Como analisamos os Gates em Atividade?
-
-        1. **Métricas Analisadas**:
-        - **Gates Ativos**: Quantidade de guichês operando simultaneamente
-        - **Senhas Retiradas**: Volume de senhas geradas por hora
-        - **Senhas Atendidas**: Volume de atendimentos realizados
-
-        2. **Distribuição por Horário**:
-        - **Manhã**: 06:00h às 13:59h
-        - **Tarde**: 14:00h às 21:59h
-        - **Noite**: 22:00h às 05:59h
-
-        3. **Indicadores**:
-        - ✅ Bem dimensionado: Gates suficientes para a demanda
-        - ⚠️ Subdimensionado: Mais senhas que capacidade
-        - ⚠️ Superdimensionado: Gates ociosos
-
-        4. **Análise de Eficiência**:
-        - 📊 Gates ativos vs. Demanda
-        - 📈 Média de atendimentos por gate
-        - ⏱️ Distribuição ao longo do dia
-
-        5. **Insights Gerados**:
-        - 🎯 Dimensionamento ideal
-        - 💡 Sugestões de otimização
-        - ⚠️ Alertas de ajustes necessários
-        """)
-
     try:
         # Seleção de visualização
         tipo_analise = st.radio(

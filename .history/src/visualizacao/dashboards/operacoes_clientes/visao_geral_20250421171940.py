@@ -174,6 +174,38 @@ def mostrar_aba(dados, filtros):
     """Mostra a aba Geral com visão consolidada e principais insights"""
     st.header("Visão Geral do Atendimento")
     
+    with st.expander("ℹ️ Como funciona?"):
+        st.markdown("""
+        ### Como analisamos o desempenho geral?
+
+        1. **Métricas de Volume**:
+        - **Total de Atendimentos**: Quantidade de senhas atendidas
+        - **Variação**: Comparativo entre períodos (%)
+        - **Tendência**: Análise da evolução do volume
+
+        2. **Métricas de Tempo**:
+        - **Tempo de Atendimento**: Duração média do atendimento
+        - **Tempo de Espera**: Média de espera dos clientes
+        - **Tempo de Permanência**: Tempo total no estabelecimento
+        - **Variações**: Comparativo entre períodos (%)
+            - 🟢 Variação negativa = Redução no tempo (melhor)
+            - 🔴 Variação positiva = Aumento no tempo (pior)
+
+        3. **Análise de Performance**:
+        - ✅ Melhoria: Redução nos tempos ou aumento controlado de volume
+        - ⚠️ Atenção: Aumento nos tempos ou redução de volume
+
+        4. **Indicadores Consolidados**:
+        - **Clientes**: Total de clientes atendidos
+        - **Operações**: Tipos de serviços realizados
+        - **Volume/Tempo**: Relação entre quantidade e duração
+
+        5. **Insights Gerados**:
+        - 📈 Análise de tendências
+        - 🎯 Pontos de melhoria
+        - 💡 Recomendações operacionais
+        """)
+    
     try:
         # Debug inicial detalhado
         st.write("=== Debug Detalhado ===")
@@ -213,7 +245,7 @@ def mostrar_aba(dados, filtros):
         st.write(f"Debug: Estrutura dos filtros: {filtros}")
         
         # Validar dados de entrada
-        if not dados or 'base' not in dados:
+        if not dados ou 'base' not in dados:
             st.warning("Debug: Dados não encontrados ou sem chave 'base'")
             return
             
@@ -237,7 +269,7 @@ def mostrar_aba(dados, filtros):
         with col1:
             st.metric(
                 "Total de Atendimentos", 
-                f"{metricas['periodo2']['total_atendimentos']:,}".replace(',', '.') + " atendimentos",
+                f"{metricas['periodo2']['total_atendimentos']} atendimentos",
                 f"{metricas['variacoes']['total_atendimentos']:.1f}%"
             )
         
@@ -277,6 +309,15 @@ def mostrar_aba(dados, filtros):
             
             # Total de atendimentos
             var_total = metricas['variacoes']['total_atendimentos']
+            total_atendimentos_p1 = metricas['periodo1']['total_atendimentos']
+            total_atendimentos_p2 = metricas['periodo2']['total_atendimentos']
+            st.markdown(f"""
+            ##### Volume Total
+            - Período 1: **{total_atendimentos_p1:,} atendimentos**
+            - Período 2: **{total_atendimentos_p2:,} atendimentos**
+            - Variação: **{var_total:+.1f}%** {'📈' if var_total > 0 else '📉'}
+            """)
+            
             if var_total > 0:
                 st.write(f"- **Aumento de {var_total:.1f}%** no volume de atendimentos")
             else:

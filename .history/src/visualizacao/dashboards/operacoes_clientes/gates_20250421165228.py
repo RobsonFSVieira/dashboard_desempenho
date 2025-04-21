@@ -105,32 +105,32 @@ def mostrar_aba(dados, filtros):
         st.markdown("""
         ### Como analisamos os Gates em Atividade?
 
-        1. **Métricas Analisadas**:
-        - **Gates Ativos**: Quantidade de guichês operando simultaneamente
+        1. **Métricas Principais**:
+        - **Gates Ativos**: Quantidade de guichês em operação em cada hora
         - **Senhas Retiradas**: Volume de senhas geradas por hora
-        - **Senhas Atendidas**: Volume de atendimentos realizados
+        - **Senhas Atendidas**: Volume de atendimentos realizados por hora
 
-        2. **Distribuição por Horário**:
-        - **Manhã**: 06:00h às 13:59h
-        - **Tarde**: 14:00h às 21:59h
-        - **Noite**: 22:00h às 05:59h
+        2. **Cálculo de Eficiência**:
+        - Comparativo entre senhas atendidas e quantidade de gates
+        - Média de atendimentos por gate em cada hora
+        - Análise de picos e vales na operação
 
         3. **Indicadores**:
-        - ✅ Bem dimensionado: Gates suficientes para a demanda
-        - ⚠️ Subdimensionado: Mais senhas que capacidade
-        - ⚠️ Superdimensionado: Gates ociosos
+        - ✅ Gates bem dimensionados: Demanda atendida sem sobrecarga
+        - ⚠️ Subdimensionamento: Mais senhas que capacidade de atendimento
+        - ⚠️ Superdimensionamento: Gates ociosos em relação à demanda
 
-        4. **Análise de Eficiência**:
-        - 📊 Gates ativos vs. Demanda
-        - 📈 Média de atendimentos por gate
-        - ⏱️ Distribuição ao longo do dia
+        4. **Análise de Horários**:
+        - **Picos**: Horários com maior demanda vs gates disponíveis
+        - **Ociosidade**: Horários com gates em excesso
+        - **Distribuição**: Análise por turnos e períodos
 
-        5. **Insights Gerados**:
-        - 🎯 Dimensionamento ideal
-        - 💡 Sugestões de otimização
+        5. **Insights**:
+        - 🎯 Dimensionamento ideal por horário
+        - 📊 Distribuição eficiente dos recursos
         - ⚠️ Alertas de ajustes necessários
         """)
-
+    
     try:
         # Seleção de visualização
         tipo_analise = st.radio(

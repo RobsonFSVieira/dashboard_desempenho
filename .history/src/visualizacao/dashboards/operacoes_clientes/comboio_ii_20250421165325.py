@@ -421,34 +421,32 @@ def mostrar_aba(dados, filtros):
         ### Como analisamos o Efeito Comboio?
 
         1. **Conceito de Comboio**:
-        - Chegada concentrada de usuários
-        - Geração de senhas em volume elevado
-        - Acúmulo progressivo de pendências
-        - Impacto nos horários subsequentes
+        - Chegada concentrada de pessoas em determinados horários
+        - Geração de senhas em volume maior que a capacidade de atendimento
+        - Formação de fila e acúmulo de pendências
 
-        2. **Métricas Monitoradas**:
-        - **Senhas Retiradas**: Volume por hora
-        - **Senhas Atendidas**: Capacidade de atendimento
-        - **Senhas Pendentes**: Acúmulo progressivo
-        - **Potencial Real**: Viabilidade de atendimento
+        2. **Métricas Analisadas**:
+        - **Senhas Retiradas**: Volume de senhas geradas por hora
+        - **Senhas Atendidas**: Quantidade de atendimentos realizados
+        - **Senhas Pendentes**: Acúmulo de senhas não atendidas (efeito bola de neve)
+        - **Potencial Real**: Capacidade de atendimento considerando o horário
 
-        3. **Efeito Bola de Neve**:
-        - Senhas anteriores não atendidas
-        - Novas senhas do horário atual
-        - Capacidade de atendimento disponível
-        - Saldo para próxima hora
+        3. **Cálculo do Efeito Bola de Neve**:
+        - Pendências = (Senhas Anteriores + Novas Senhas) - Atendimentos
+        - Acúmulo progressivo de uma hora para outra
+        - Impacto nas horas subsequentes
 
         4. **Análise de Viabilidade**:
-        - ✅ Senhas com tempo viável
-        - ⚠️ Senhas inviáveis (pendentes)
-        - 📊 Capacidade vs. Demanda
+        - Senhas com tempo viável de atendimento na mesma hora
+        - Senhas que inevitavelmente ficarão para próxima hora
+        - Capacidade real vs. demanda
 
-        5. **Insights Gerados**:
-        - 🎯 Horários críticos
-        - ⚠️ Alertas de sobrecarga
-        - 💡 Sugestões de distribuição
+        5. **Insights**:
+        - 🎯 Horários críticos de chegada
+        - ⚠️ Momentos de sobrecarga
+        - 📊 Sugestões de distribuição
         """)
-
+    
     try:
         st.session_state['tema_atual'] = detectar_tema()
         

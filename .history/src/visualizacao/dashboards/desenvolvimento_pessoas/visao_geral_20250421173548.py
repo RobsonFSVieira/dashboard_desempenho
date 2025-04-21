@@ -87,7 +87,7 @@ def criar_grafico_atendimentos(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 24, 'color': 'black', 'family': 'Arial Black'},  # Aumentado para 24
         textposition='inside',
     )
     
@@ -129,7 +129,7 @@ def criar_grafico_tempo(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 24, 'color': 'black', 'family': 'Arial Black'},  # Aumentado para 24
         textposition='inside',
     )
     
@@ -183,7 +183,7 @@ def criar_grafico_ociosidade(metricas):
 
     # Aumenta o tamanho do texto e posiciona os rótulos dentro das barras
     fig.update_traces(
-        textfont={'size': 18, 'color': 'black', 'family': 'Arial Black'},  # Fonte maior e preta
+        textfont={'size': 24, 'color': 'black', 'family': 'Arial Black'},  # Aumentado para 24
         textposition='inside',
     )
     

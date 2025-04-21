@@ -637,26 +637,26 @@ def mostrar_aba(dados, filtros):
         - **24 Horas**: Acompanhamento detalhado hora a hora
         - **Períodos**: Manhã (6h-14h), Tarde (14h-22h), Noite (22h-6h)
         - **Tendências**: Padrões de demanda ao longo do dia
-
+        
         2. **Métricas por Hora**:
         - **Gates Ativos**: Quantidade de guichês operando
         - **Atendimentos**: Volume de senhas atendidas
         - **Média/Gate**: Produtividade por gate
-
+        
         3. **Indicadores de Performance**:
         - ✅ Alta eficiência: > 80% da capacidade utilizada
         - ⚠️ Baixa eficiência: < 50% da capacidade utilizada
         - 📈 Tendência de uso dos gates
-
-        4. **Análise Detalhada**:
-        - 🎯 Timeline dos atendimentos
-        - 📊 Performance por gate
+        
+        4. **Análise da Demanda**:
+        - 🏆 Horários de pico
+        - 📉 Horários de baixa
         - ⚖️ Balanceamento de recursos
-
+        
         5. **Insights Operacionais**:
-        - 🔍 Momentos críticos
+        - 🎯 Distribuição ideal de gates
+        - ⚠️ Momentos críticos
         - 💡 Sugestões de ajuste
-        - ⚠️ Alertas de capacidade
         """)
 
     try:

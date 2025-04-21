@@ -424,27 +424,26 @@ def mostrar_aba(dados, filtros):
         - Chegada concentrada de usuários
         - Geração de senhas em volume elevado
         - Acúmulo progressivo de pendências
-        - Impacto nos horários subsequentes
-
+        
         2. **Métricas Monitoradas**:
         - **Senhas Retiradas**: Volume por hora
         - **Senhas Atendidas**: Capacidade de atendimento
         - **Senhas Pendentes**: Acúmulo progressivo
         - **Potencial Real**: Viabilidade de atendimento
-
+        
         3. **Efeito Bola de Neve**:
-        - Senhas anteriores não atendidas
+        - Pendências acumuladas da hora anterior
         - Novas senhas do horário atual
         - Capacidade de atendimento disponível
         - Saldo para próxima hora
-
+        
         4. **Análise de Viabilidade**:
-        - ✅ Senhas com tempo viável
-        - ⚠️ Senhas inviáveis (pendentes)
+        - ✅ Senhas com tempo viável de atendimento
+        - ⚠️ Senhas inviáveis (ficarão pendentes)
         - 📊 Capacidade vs. Demanda
-
+        
         5. **Insights Gerados**:
-        - 🎯 Horários críticos
+        - 🎯 Horários críticos de chegada
         - ⚠️ Alertas de sobrecarga
         - 💡 Sugestões de distribuição
         """)

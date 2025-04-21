@@ -416,39 +416,6 @@ def mostrar_aba(dados, filtros):
     st.header("Análise de Chegada em Comboio II")
     st.write("Análise hora a hora de senhas retiradas, atendidas e pendentes")
     
-    with st.expander("ℹ️ Como funciona?"):
-        st.markdown("""
-        ### Como analisamos o Efeito Comboio?
-
-        1. **Conceito de Comboio**:
-        - Chegada concentrada de usuários
-        - Geração de senhas em volume elevado
-        - Acúmulo progressivo de pendências
-        - Impacto nos horários subsequentes
-
-        2. **Métricas Monitoradas**:
-        - **Senhas Retiradas**: Volume por hora
-        - **Senhas Atendidas**: Capacidade de atendimento
-        - **Senhas Pendentes**: Acúmulo progressivo
-        - **Potencial Real**: Viabilidade de atendimento
-
-        3. **Efeito Bola de Neve**:
-        - Senhas anteriores não atendidas
-        - Novas senhas do horário atual
-        - Capacidade de atendimento disponível
-        - Saldo para próxima hora
-
-        4. **Análise de Viabilidade**:
-        - ✅ Senhas com tempo viável
-        - ⚠️ Senhas inviáveis (pendentes)
-        - 📊 Capacidade vs. Demanda
-
-        5. **Insights Gerados**:
-        - 🎯 Horários críticos
-        - ⚠️ Alertas de sobrecarga
-        - 💡 Sugestões de distribuição
-        """)
-
     try:
         st.session_state['tema_atual'] = detectar_tema()
         
