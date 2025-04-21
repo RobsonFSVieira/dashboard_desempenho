@@ -1,32 +1,19 @@
 # Python
 __pycache__/
 *.py[cod]
-*.so
-.Python
-env/
-venv/
 .env
+venv/
 
 # VS Code
 .vscode/
+.history/
 
-# Exceções para dados
+# Arquivos Excel e CSV
+*.xlsx
+*.csv
 !dados/*.xlsx
 !dados/*.csv
 
-# Streamlit
-.streamlit/
-secrets.toml
-
-# Arquivos de dados
-*.xlsx
-*.xls
-*.csv
-
-# Logs
-*.log
-.ipynb_checkpoints/
-
-# Sistema operacional
-.DS_Store      # MacOS
-Thumbs.db      # Windows
+# Sistema
+.DS_Store
+Thumbs.db
