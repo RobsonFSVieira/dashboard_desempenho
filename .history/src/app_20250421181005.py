@@ -1,4 +1,4 @@
-    import streamlit as st
+import streamlit as st
 import dash_bootstrap_components as dbc
 from visualizacao.dashboards.desenvolvimento_pessoas.ranking import create_ranking_layout
 
