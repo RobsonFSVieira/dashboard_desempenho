@@ -10,14 +10,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# Caminho relativo para os dados usando Path
-current_dir = Path(__file__).parent.parent
-dados_path = current_dir / "dados" / "base.xlsx"
+# Tentativa 1: Usando caminho relativo simples
+dados_path = "dados/base.xlsx"
 
-# Debug info
-st.write("Debug - Caminho tentado:", str(dados_path))
-st.write("Debug - Arquivo existe?", os.path.exists(dados_path))
-st.write("Debug - Diretório atual:", os.getcwd())
+# Debug info expandido
+with st.expander("🔍 Informações de Debug"):
+    st.write("Método 1 - Caminho relativo simples:", dados_path)
+    st.write("Arquivo existe?", os.path.exists(dados_path))
+    
+    # Tentativa 2: Usando Path
+    path_alt = Path(__file__).parent.parent / "dados" / "base.xlsx"
+    st.write("Método 2 - Usando Path:", str(path_alt))
+    st.write("Arquivo existe?", path_alt.exists())
+    
+    # Listar arquivos no diretório atual
+    st.write("Arquivos no diretório atual:", os.listdir())
+    st.write("Diretório atual:", os.getcwd())
 
 # Carregamento dos dados
 try:
@@ -26,8 +34,15 @@ try:
         st.title("Dashboard de Atendimento")
         # ... resto do seu código ...
     else:
-        st.error(f"❌ Arquivo não encontrado: {dados_path}")
-        st.info("📊 Verifique se o arquivo está na pasta correta.")
+        alt_path = Path(__file__).parent.parent / "dados" / "base.xlsx"
+        if alt_path.exists():
+            df = pd.read_excel(alt_path)
+            st.title("Dashboard de Atendimento")
+            # ... resto do seu código ...
+        else:
+            st.error("❌ Arquivo não encontrado em nenhum dos caminhos testados")
+            st.info(f"📊 Caminhos tentados:\n1. {dados_path}\n2. {alt_path}")
 except Exception as e:
     st.error(f"❌ Erro ao carregar base: {str(e)}")
-    st.info(f"📊 Erro detalhado: {type(e).__name__}")
+    st.info(f"📊 Tipo do erro: {type(e).__name__}")
+    st.info(f"📊 Detalhes completos do erro: {e}")
