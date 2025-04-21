@@ -1,4 +1,5 @@
 import streamlit as st
+from visualizacao.dashboards.desenvolvimento_pessoas.ranking import create_ranking_layout
 
 # Configuração da página
 st.set_page_config(
@@ -11,6 +12,4 @@ st.set_page_config(
 st.title("Dashboard de Atendimento")
 
 # Layout principal
-# Aqui você deve colocar seu código de dashboard atual
-# Exemplo:
-# st.write("Seu conteúdo aqui")
+create_ranking_layout()
