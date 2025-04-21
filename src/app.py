@@ -10,13 +10,17 @@ st.set_page_config(
 )
 
 # Caminho relativo para os dados
-dados_path = os.path.join("..", "dados", "seu_arquivo.xlsx")
+dados_path = os.path.join("dados", "base.xlsx")  # Ajuste o nome do arquivo conforme necessário
 
 # Carregamento dos dados
 try:
-    df = pd.read_excel(dados_path)
-    st.title("Dashboard de Atendimento")
-    # ... resto do seu código ...
+    if os.path.exists(dados_path):
+        df = pd.read_excel(dados_path)
+        st.title("Dashboard de Atendimento")
+        # ... resto do seu código ...
+    else:
+        st.error(f"❌ Arquivo não encontrado: {dados_path}")
+        st.info("📊 Carregue os dados e selecione os filtros para visualizar o dashboard.")
 except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}")
-    st.write("Caminho tentado:", dados_path)
+    st.error(f"❌ Erro ao carregar base: {str(e)}")
+    st.info("📊 Carregue os dados e selecione os filtros para visualizar o dashboard.")
