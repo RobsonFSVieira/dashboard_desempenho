@@ -58,9 +58,6 @@ def calcular_metricas_por_periodo(dados, filtros, periodo_key, adicional_filters
             
         if adicional_filters['data_especifica']:
             df_filtrado = df_filtrado[df_filtrado['retirada'].dt.date == adicional_filters['data_especifica']]
-        
-        if adicional_filters['colaborador'] != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['usuário'] == adicional_filters['colaborador']]
     
     # Calcular métricas
     metricas = df_filtrado.groupby('usuário').agg({
@@ -323,13 +320,7 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de tempo de atendimento"""
-    # Formatar períodos para exibição
-    periodo1 = (f"{filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
-    periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Tempo de Atendimento - P1: {periodo1} | P2: {periodo2}")
+    st.header("Tempo de Atendimento")
 
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""
@@ -383,15 +374,6 @@ def mostrar_aba(dados, filtros):
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            colaboradores = sorted(dados['base']['usuário'].unique())
-            colaborador = st.selectbox(
-                "Selecione o Colaborador",
-                options=["Todos"] + colaboradores,
-                key="tempo_atend_colaborador",
-                help="Escolha um colaborador específico ou 'Todos'"
-            )
-        
-        with col2:
             turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
             turno = st.selectbox(
                 "Selecione o Turno",
@@ -400,7 +382,7 @@ def mostrar_aba(dados, filtros):
                 help="Filtre por turno específico"
             )
             
-        with col3:
+        with col2:
             clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
             cliente = st.selectbox(
                 "Selecione o Cliente",
@@ -409,7 +391,7 @@ def mostrar_aba(dados, filtros):
                 help="Filtre por cliente específico"
             )
 
-        with col4:
+        with col3:
             # Obter lista de datas disponíveis no período
             mask_periodo = (
                 (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
@@ -433,7 +415,6 @@ def mostrar_aba(dados, filtros):
 
         # Criar dicionário de filtros adicionais
         adicional_filters = {
-            'colaborador': colaborador,
             'turno': turno,
             'cliente': cliente,
             'data_especifica': data_especifica

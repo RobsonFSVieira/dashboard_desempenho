@@ -323,13 +323,7 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de tempo de atendimento"""
-    # Formatar períodos para exibição
-    periodo1 = (f"{filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
-    periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Tempo de Atendimento - P1: {periodo1} | P2: {periodo2}")
+    st.header("Tempo de Atendimento")
 
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""

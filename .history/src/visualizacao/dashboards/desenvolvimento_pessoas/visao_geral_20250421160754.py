@@ -54,8 +54,8 @@ def criar_grafico_atendimentos(metricas):
     """Cria gráfico dos top 10 colaboradores por atendimentos"""
     # Pegar os 10 melhores em quantidade (maiores valores)
     top_10 = metricas.nlargest(10, 'qtd_atendimentos')
-    # Ordenar do menor para o maior para exibição (invertido para mostrar maiores no topo)
-    top_10 = top_10.sort_values('qtd_atendimentos', ascending=False)
+    # Ordenar do maior para o menor para exibição
+    top_10 = top_10.sort_values('qtd_atendimentos', ascending=True)
     
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -191,113 +191,11 @@ def criar_grafico_ociosidade(metricas):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Visão Geral"""
-    # Formatar período para exibição
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Visão Geral de Performance ({periodo})")
-    
-    # Adicionar seção explicativa
-    with st.expander("ℹ️ Como funciona?", expanded=False):
-        st.markdown("""
-        ### Cálculo de Performance
-        
-        O sistema avalia a performance dos colaboradores considerando 3 métricas principais:
-        
-        1. **Volume de Atendimentos (40%)**
-           - Quantidade total de atendimentos realizados
-           - Quanto maior o volume, melhor a pontuação
-        
-        2. **Tempo Médio de Atendimento (30%)**
-           - Média de tempo gasto em cada atendimento
-           - Quanto menor o tempo, melhor a pontuação
-        
-        3. **Tempo de Ociosidade (30%)**
-           - Média entre tempo de espera e tempo de atendimento
-           - Quanto menor a ociosidade, melhor a pontuação
-        
-        ### Cálculo do Score
-        
-        O score final é calculado através de uma média ponderada normalizada:
-        - Volume: (atendimentos_colaborador / maior_volume) * 0.4
-        - Tempo: (menor_tempo / tempo_colaborador) * 0.3
-        - Ociosidade: (menor_ociosidade / ociosidade_colaborador) * 0.3
-        
-        ### Visualizações
-        
-        - **Gráficos de Performance**: Top 10 colaboradores em cada métrica
-        - **Ranking dos 5 Melhores**: Considerando todas as métricas
-        - **Pontos de Atenção**: Colaboradores abaixo da média
-        - **Insights Gerais**: Estatísticas gerais da equipe
-        """)
+    st.header("Visão Geral de Performance")
     
     try:
-        # Adicionar filtros adicionais
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
-            turno = st.selectbox(
-                "Selecione o Turno",
-                options=turnos,
-                key="visao_geral_turno"
-            )
-            
-        with col2:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
-            cliente = st.selectbox(
-                "Selecione o Cliente",
-                options=clientes,
-                key="visao_geral_cliente"
-            )
-
-        with col3:
-            # Obter lista de datas disponíveis no período
-            mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
-            datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
-            
-            data_selecionada = st.selectbox(
-                "Selecione a Data",
-                options=datas_opcoes,
-                key="visao_geral_data"
-            )
-        
-        # Processar data
-        data_especifica = None
-        if data_selecionada != "Todas":
-            dia, mes, ano = map(int, data_selecionada.split('/'))
-            data_especifica = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
-        
-        # Filtros adicionais
-        adicional_filters = {
-            'turno': turno,
-            'cliente': cliente,
-            'data_especifica': data_especifica
-        }
-        
-        # Aplicar filtros à base de dados
-        df = dados['base'].copy()
-        if turno != "Todos":
-            df['turno'] = df['inicio'].dt.hour.map(
-                lambda x: 'A' if 6 <= x < 14 else ('B' if 14 <= x < 22 else 'C')
-            )
-            df = df[df['turno'].map({'A': 'TURNO A', 'B': 'TURNO B', 'C': 'TURNO C'}) == turno]
-            
-        if cliente != "Todos":
-            df = df[df['CLIENTE'] == cliente]
-            
-        if data_especifica:
-            df = df[df['retirada'].dt.date == data_especifica]
-        
-        # Atualizar dados com filtros aplicados
-        dados_filtrados = {'base': df}
-        
-        # Calcular métricas com dados filtrados
-        metricas = calcular_performance(dados_filtrados, filtros)
+        # Calcular métricas de performance
+        metricas = calcular_performance(dados, filtros)
         
         # Mostrar métricas gerais
         col1, col2, col3 = st.columns(3)
@@ -313,7 +211,7 @@ def mostrar_aba(dados, filtros):
             media_atend = metricas['qtd_atendimentos'].mean()
             st.metric(
                 "Média de Atendimentos",
-                f"{int(media_atend)} atendimentos",
+                f"{media_atend:.1f}",
                 help="Média de atendimentos por colaborador"
             )
         
@@ -348,48 +246,19 @@ def mostrar_aba(dados, filtros):
         # Análise Detalhada
         st.subheader("📊 Análise Detalhada")
         with st.expander("Ver análise", expanded=True):
+            # Usando 3 colunas ao invés de 2
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.write("#### 🏆 Ranking dos 5 Melhores")
-                st.write("*Score considera: 40% volume + 30% tempo médio + 30% ociosidade*")
-                
-                # Normalizar as métricas para criar um ranking composto
-                df_rank = pd.DataFrame()
-                df_rank['colaborador'] = metricas['colaborador']
-                
-                # Normalizar volume (maior é melhor)
-                df_rank['rank_volume'] = metricas['qtd_atendimentos'] / metricas['qtd_atendimentos'].max()
-                
-                # Normalizar tempo médio (menor é melhor)
-                df_rank['rank_tempo'] = metricas['tempo_medio'].min() / metricas['tempo_medio']
-                
-                # Normalizar ociosidade (menor é melhor)
-                df_rank['rank_ocio'] = (metricas['tempo_espera'].min() + metricas['tempo_medio'].min()) / (metricas['tempo_espera'] + metricas['tempo_medio'])
-                
-                # Calcular score final (média ponderada)
-                df_rank['score_final'] = (
-                    df_rank['rank_volume'] * 0.4 +  # 40% peso volume
-                    df_rank['rank_tempo'] * 0.3 +   # 30% peso tempo
-                    df_rank['rank_ocio'] * 0.3      # 30% peso ociosidade
-                ) * 100
-                
-                # Pegar top 5
-                top_5 = df_rank.nlargest(5, 'score_final').reset_index(drop=True)  # Reset do índice
-                
-                # Mostrar ranking
-                for idx, row in top_5.iterrows():
-                    colaborador = metricas[metricas['colaborador'] == row['colaborador']].iloc[0]
-                    posicao = ["🥇 1º", "🥈 2º", "🥉 3º", "4º", "5º"][idx]  # Medalhas para os 3 primeiros
-                    st.markdown(f"""
-                    **{posicao} Lugar - {row['colaborador']}**
-                    - 🎯 Score: {row['score_final']:.1f}
-                    - 📊 Volume: {colaborador['qtd_atendimentos']} atendimentos
-                    - ⏱️ Tempo Médio: {colaborador['tempo_medio']:.1f} min
-                    - ⌛ Ociosidade: {(colaborador['tempo_espera'] + colaborador['tempo_medio'])/2:.1f} min
-                    ---
-                    """)
-                
+                st.write("#### 🏆 Top 3 Colaboradores")
+                for i, row in metricas.head(3).iterrows():
+                    st.write(
+                        f"**{i+1}º {row['colaborador']}**\n\n"
+                        f"- Score: {row['score']:.1f}\n"
+                        f"- Atendimentos: {row['qtd_atendimentos']}\n"
+                        f"- Tempo Médio: {row['tempo_medio']:.1f} min"
+                    )
+            
             with col2:
                 st.write("#### ⚠️ Pontos de Atenção")
                 baixa_perf = metricas[metricas['score'] < metricas['score'].mean()]

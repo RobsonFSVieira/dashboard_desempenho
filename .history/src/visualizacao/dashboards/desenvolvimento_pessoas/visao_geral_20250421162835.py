@@ -313,7 +313,7 @@ def mostrar_aba(dados, filtros):
             media_atend = metricas['qtd_atendimentos'].mean()
             st.metric(
                 "Média de Atendimentos",
-                f"{int(media_atend)} atendimentos",
+                f"{media_atend:.1f}",
                 help="Média de atendimentos por colaborador"
             )
         

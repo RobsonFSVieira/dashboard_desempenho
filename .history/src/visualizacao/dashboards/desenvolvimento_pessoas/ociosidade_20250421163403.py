@@ -331,13 +331,7 @@ def gerar_insights_ociosidade(ocio_p1, ocio_p2, mostrar_apenas_p2=True):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Análise de Ociosidade"""
-    # Formatar períodos para exibição
-    periodo1 = (f"{filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
-    periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Análise de Ociosidade - P1: {periodo1} | P2: {periodo2}")
+    st.header("Análise de Ociosidade")
     
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""

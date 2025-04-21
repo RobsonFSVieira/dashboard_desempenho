@@ -336,8 +336,9 @@ def mostrar_aba(dados, filtros):
                f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
     periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
                f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Análise de Ociosidade - P1: {periodo1} | P2: {periodo2}")
+
+    st.header(f"Análise de Ociosidade - Comparativo")
+    st.caption(f"📅 Período 1: {periodo1} | Período 2: {periodo2}")
     
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""

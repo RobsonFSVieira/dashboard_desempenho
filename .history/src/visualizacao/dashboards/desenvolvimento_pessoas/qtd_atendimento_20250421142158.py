@@ -1,7 +1,8 @@
 import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
 import json
+from datetime import datetime
 
 def detectar_tema():
     """Detecta se o tema atual é claro ou escuro"""
@@ -27,25 +28,26 @@ def obter_cores_tema():
         'erro': '#ff6b6b' if is_dark else '#ff5757'
     }
 
-def formatar_tempo(minutos):
-    """Formata o tempo em minutos para o formato mm:ss"""
-    minutos_int = int(minutos)
-    segundos = int((minutos - minutos_int) * 60)
-    return f"{minutos_int:02d}:{segundos:02d}"
-
-def calcular_metricas_por_periodo(dados, filtros, periodo_key, adicional_filters=None):
-    """Calcula métricas por colaborador para um período específico"""
+def calcular_atendimentos_por_periodo(dados, filtros, periodo, adicional_filters=None):
+    """Calcula a quantidade de atendimentos por colaborador no período especificado"""
     df = dados['base']
+    
+    if df.empty:
+        st.warning("Base de dados está vazia")
+        return pd.DataFrame()
     
     # Aplicar filtros de data
     mask = (
-        (df['retirada'].dt.date >= filtros[periodo_key]['inicio']) &
-        (df['retirada'].dt.date <= filtros[periodo_key]['fim'])
+        (df['retirada'].dt.date >= filtros[periodo]['inicio']) &
+        (df['retirada'].dt.date <= filtros[periodo]['fim'])
     )
     df_filtrado = df[mask]
     
-    # Aplicar filtros adicionais se fornecidos
+    # Aplicar filtros adicionais
     if adicional_filters:
+        if adicional_filters['colaborador'] != "Todos":
+            df_filtrado = df_filtrado[df_filtrado['usuário'] == adicional_filters['colaborador']]
+        
         if adicional_filters['turno'] != "Todos":
             # Mapear hora para turno
             df_filtrado['turno'] = df_filtrado['inicio'].dt.hour.map(
@@ -58,44 +60,34 @@ def calcular_metricas_por_periodo(dados, filtros, periodo_key, adicional_filters
             
         if adicional_filters['data_especifica']:
             df_filtrado = df_filtrado[df_filtrado['retirada'].dt.date == adicional_filters['data_especifica']]
-        
-        if adicional_filters['colaborador'] != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['usuário'] == adicional_filters['colaborador']]
     
-    # Calcular métricas
-    metricas = df_filtrado.groupby('usuário').agg({
-        'id': 'count',
-        'tpatend': 'mean'
-    }).reset_index()
+    # Agrupar por colaborador usando a coluna correta
+    atendimentos = df_filtrado.groupby('usuário')['id'].count().reset_index()
+    atendimentos.columns = ['colaborador', 'quantidade']
     
-    # Converter tempo para minutos
-    metricas['tpatend'] = metricas['tpatend'] / 60
-    
-    return metricas
+    return atendimentos
 
 def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
-    """Cria gráfico comparativo entre períodos"""
     try:
-        # Merge e prepara dados
+        # Merge dos dados
         df_comp = pd.merge(
             dados_p1, 
-            dados_p2,
-            on='usuário',
-            suffixes=('_p1', '_p2')
-        )
+            dados_p2, 
+            on='colaborador',
+            suffixes=('_p1', '_p2'),
+            how='outer'
+        ).fillna(0)
         
-        # Calcula total e variação percentual
-        df_comp['total'] = df_comp['tpatend_p1'] + df_comp['tpatend_p2']
-        df_comp['variacao'] = ((df_comp['tpatend_p2'] - df_comp['tpatend_p1']) / 
-                              df_comp['tpatend_p1'] * 100)
+        # Ordena por quantidade do período 2 (decrescente)
+        df_comp = df_comp.sort_values('quantidade_p2', ascending=True)
         
-        # Ordena por tempo do período 2 decrescente (maiores tempos no topo)
-        df_comp = df_comp.sort_values('tpatend_p2', ascending=False)
+        # Calcula variação percentual
+        df_comp['variacao'] = ((df_comp['quantidade_p2'] - df_comp['quantidade_p1']) / 
+                              df_comp['quantidade_p1'] * 100).replace([float('inf')], 100)
         
-        # Obtém cores do tema atual
         cores_tema = obter_cores_tema()
         
-        # Prepara legendas com data formatada
+        # Prepara legendas
         legenda_p1 = (f"Período 1 ({filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} "
                       f"a {filtros['periodo1']['fim'].strftime('%d/%m/%Y')})")
         legenda_p2 = (f"Período 2 ({filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} "
@@ -107,44 +99,35 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Adiciona barras para período 1
         fig.add_trace(go.Bar(
             name=legenda_p1,
-            y=df_comp['usuário'],
-            x=df_comp['tpatend_p1'],
+            y=df_comp['colaborador'],
+            x=df_comp['quantidade_p1'],
             orientation='h',
-            text=[f"{formatar_tempo(x)} min" for x in df_comp['tpatend_p1']],
+            text=df_comp['quantidade_p1'].astype(int),
             textposition='inside',
             marker_color=cores_tema['primaria'],
-            textfont={
-                'size': 16,
-                'color': '#ffffff',
-                'family': 'Arial Black'
-            },
+            textfont={'color': '#ffffff', 'size': 16},
             opacity=0.85
         ))
         
         # Adiciona barras para período 2
         fig.add_trace(go.Bar(
             name=legenda_p2,
-            y=df_comp['usuário'],
-            x=df_comp['tpatend_p2'],
+            y=df_comp['colaborador'],
+            x=df_comp['quantidade_p2'],
             orientation='h',
-            text=[f"{formatar_tempo(x)} min" for x in df_comp['tpatend_p2']],
+            text=df_comp['quantidade_p2'].astype(int),
             textposition='inside',
             marker_color=cores_tema['secundaria'],
-            textfont={
-                'size': 16,
-                'color': '#000000',
-                'family': 'Arial Black'
-            },
+            textfont={'color': '#000000', 'size': 16},
             opacity=0.85
         ))
-
+        
         # Adiciona anotações de variação percentual
-        df_comp['posicao_total'] = df_comp['tpatend_p1'] + df_comp['tpatend_p2']
+        df_comp['posicao_total'] = df_comp['quantidade_p1'] + df_comp['quantidade_p2']
         for i, row in df_comp.iterrows():
-            cor = cores_tema['sucesso'] if row['variacao'] < 0 else cores_tema['erro']
-            
+            cor = cores_tema['sucesso'] if row['variacao'] >= 0 else cores_tema['erro']
             fig.add_annotation(
-                y=row['usuário'],
+                y=row['colaborador'],
                 x=row['posicao_total'],
                 text=f"{row['variacao']:+.1f}%",
                 showarrow=False,
@@ -157,7 +140,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         # Atualiza layout
         fig.update_layout(
             title={
-                'text': 'Comparativo de Tempo Médio de Atendimento por Colaborador',
+                'text': 'Comparativo de Quantidade de Atendimentos por Colaborador',
                 'font': {'size': 16, 'color': cores_tema['texto']}
             },
             barmode='stack',
@@ -172,9 +155,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
                 'y': 1.02,
                 'xanchor': 'right',
                 'x': 1,
-                'font': {'color': cores_tema['texto']},
-                'traceorder': 'normal',
-                'itemsizing': 'constant'
+                'traceorder': 'normal'  # Define ordem normal para mostrar Período 1 primeiro
             },
             margin=dict(l=20, r=160, t=80, b=40),
             plot_bgcolor='rgba(0,0,0,0)',
@@ -183,7 +164,7 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
         
         # Atualiza eixos
         fig.update_xaxes(
-            title='Tempo de Atendimento (minutos)',
+            title='Quantidade de Atendimentos',
             title_font={'color': cores_tema['texto']},
             tickfont={'color': cores_tema['texto']},
             gridcolor=cores_tema['grid'],
@@ -204,21 +185,26 @@ def criar_grafico_comparativo(dados_p1, dados_p2, filtros):
             zeroline=False
         )
         
-        return fig, df_comp
+        return fig
     except Exception as e:
         st.error(f"Erro ao criar gráfico: {str(e)}")
-        return None, None
+        return None
 
 def gerar_insights_atendimentos(atend_p1, atend_p2):
-    """Gera insights sobre os tempos de atendimento dos colaboradores"""
+    """Gera insights sobre os atendimentos dos colaboradores"""
     try:
         # Merge dos dados
         df_insights = pd.merge(
             atend_p1, 
             atend_p2, 
-            on='usuário',
-            suffixes=('_p1', '_p2')
+            on='colaborador',
+            suffixes=('_p1', '_p2'),
+            how='outer'
         ).fillna(0)
+        
+        # Calcula variação percentual
+        df_insights['variacao'] = ((df_insights['quantidade_p2'] - df_insights['quantidade_p1']) / 
+                                  df_insights['quantidade_p1'] * 100).replace([float('inf')], 100)
         
         # Criar 4 colunas principais
         col_perf1, col_perf2, col_perf3, col_insights = st.columns([0.25, 0.25, 0.25, 0.25])
@@ -254,12 +240,12 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
             st.write("#### Performance (1/3)")
             df_parte = df_insights.iloc[indices[0][0]:indices[0][1]]
             for _, row in df_parte.iterrows():
-                status = "✅" if row['tpatend_p2'] <= row['tpatend_p1'] else "⚠️"
+                status = "✅" if row['variacao'] > 0 else "⚠️"
                 st.write(
-                    f"**{row['usuário']}** {status}\n\n"
-                    f"- P1: {formatar_tempo(row['tpatend_p1'])} min\n"
-                    f"- P2: {formatar_tempo(row['tpatend_p2'])} min\n"
-                    f"- Variação: {((row['tpatend_p2'] - row['tpatend_p1']) / row['tpatend_p1'] * 100):+.1f}%"
+                    f"**{row['colaborador']}** {status}\n\n"
+                    f"- P1: {int(row['quantidade_p1'])}\n"
+                    f"- P2: {int(row['quantidade_p2'])}\n"
+                    f"- Variação: {row['variacao']:+.1f}%"
                 )
 
         # Segunda coluna de performance
@@ -267,12 +253,12 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
             st.write("#### Performance (2/3)")
             df_parte = df_insights.iloc[indices[1][0]:indices[1][1]]
             for _, row in df_parte.iterrows():
-                status = "✅" if row['tpatend_p2'] <= row['tpatend_p1'] else "⚠️"
+                status = "✅" if row['variacao'] > 0 else "⚠️"
                 st.write(
-                    f"**{row['usuário']}** {status}\n\n"
-                    f"- P1: {formatar_tempo(row['tpatend_p1'])} min\n"
-                    f"- P2: {formatar_tempo(row['tpatend_p2'])} min\n"
-                    f"- Variação: {((row['tpatend_p2'] - row['tpatend_p1']) / row['tpatend_p1'] * 100):+.1f}%"
+                    f"**{row['colaborador']}** {status}\n\n"
+                    f"- P1: {int(row['quantidade_p1'])}\n"
+                    f"- P2: {int(row['quantidade_p2'])}\n"
+                    f"- Variação: {row['variacao']:+.1f}%"
                 )
 
         # Terceira coluna de performance
@@ -280,40 +266,36 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
             st.write("#### Performance (3/3)")
             df_parte = df_insights.iloc[indices[2][0]:indices[2][1]]
             for _, row in df_parte.iterrows():
-                status = "✅" if row['tpatend_p2'] <= row['tpatend_p1'] else "⚠️"
+                status = "✅" if row['variacao'] > 0 else "⚠️"
                 st.write(
-                    f"**{row['usuário']}** {status}\n\n"
-                    f"- P1: {formatar_tempo(row['tpatend_p1'])} min\n"
-                    f"- P2: {formatar_tempo(row['tpatend_p2'])} min\n"
-                    f"- Variação: {((row['tpatend_p2'] - row['tpatend_p1']) / row['tpatend_p1'] * 100):+.1f}%"
+                    f"**{row['colaborador']}** {status}\n\n"
+                    f"- P1: {int(row['quantidade_p1'])}\n"
+                    f"- P2: {int(row['quantidade_p2'])}\n"
+                    f"- Variação: {row['variacao']:+.1f}%"
                 )
 
         # Coluna de insights
         with col_insights:
             st.write("#### 📈 Insights")
             
-            # Melhor performance (menor tempo ou maior redução)
-            melhor = df_insights.loc[df_insights['tpatend_p2'].idxmin()]
-            variacao_melhor = ((melhor['tpatend_p2'] - melhor['tpatend_p1']) / melhor['tpatend_p1'] * 100)
+            # Melhor performance
+            melhor = df_insights.loc[df_insights['variacao'].idxmax()]
             st.markdown(
                 f"<div class='success-box'>"
                 f"<b>🎯 Melhor Performance</b><br>"
-                f"{melhor['usuário']}<br>"
-                f"Tempo: {formatar_tempo(melhor['tpatend_p2'])} min<br>"
-                f"Variação: {variacao_melhor:+.1f}%"
+                f"{melhor['colaborador']}<br>"
+                f"Variação: {melhor['variacao']:+.1f}%"
                 f"</div>",
                 unsafe_allow_html=True
             )
             
-            # Oportunidade de melhoria (maior tempo ou maior aumento)
-            pior = df_insights.loc[df_insights['tpatend_p2'].idxmax()]
-            variacao_pior = ((pior['tpatend_p2'] - pior['tpatend_p1']) / pior['tpatend_p1'] * 100)
+            # Oportunidade de melhoria
+            pior = df_insights.loc[df_insights['variacao'].idxmin()]
             st.markdown(
                 f"<div class='warning-box'>"
                 f"<b>⚠️ Oportunidade de Melhoria</b><br>"
-                f"{pior['usuário']}<br>"
-                f"Tempo: {formatar_tempo(pior['tpatend_p2'])} min<br>"
-                f"Variação: {variacao_pior:+.1f}%"
+                f"{pior['colaborador']}<br>"
+                f"Variação: {pior['variacao']:+.1f}%"
                 f"</div>",
                 unsafe_allow_html=True
             )
@@ -322,43 +304,37 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
         st.error(f"Erro ao gerar insights: {str(e)}")
 
 def mostrar_aba(dados, filtros):
-    """Mostra a aba de tempo de atendimento"""
-    # Formatar períodos para exibição
-    periodo1 = (f"{filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
-    periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-               f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    """Mostra a aba de Quantidade de Atendimento"""
+    st.header("Quantidade de Atendimento")
     
-    st.header(f"Tempo de Atendimento - P1: {periodo1} | P2: {periodo2}")
-
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""
-        ### Como analisamos o tempo de atendimento?
+        ### Como analisamos a quantidade de atendimentos?
 
-        1. **Cálculo do Tempo**:
-        - Tempo = (Horário de Fim - Horário de Início) do atendimento
-        - Valor apresentado em minutos e segundos (mm:ss)
-        - Média calculada por colaborador para cada período
+        1. **Contagem de Atendimentos**:
+        - Total de senhas atendidas por colaborador
+        - Contabiliza apenas atendimentos finalizados
+        - Agrupado por período de análise
 
         2. **Comparativo entre Períodos**:
         - **Período 1**: Base histórica para comparação
         - **Período 2**: Período atual em análise
         - **Variação**: Diferença percentual entre os períodos
-            - 🟢 Variação negativa = Redução no tempo (melhor)
-            - 🔴 Variação positiva = Aumento no tempo (pior)
+            - 🟢 Variação positiva = Aumento na quantidade (melhor)
+            - 🔴 Variação negativa = Redução na quantidade (pior)
 
         3. **Indicadores de Performance**:
-        - ✅ Redução no tempo médio = Melhoria na eficiência
-        - ⚠️ Aumento no tempo médio = Oportunidade de melhoria
+        - ✅ Aumento no número de atendimentos = Maior produtividade
+        - ⚠️ Redução no número de atendimentos = Oportunidade de melhoria
 
         4. **Métricas Importantes**:
-        - **Variação Média**: Tendência geral do grupo
-        - **Maior Redução**: Melhor evolução individual
-        - **Maior Aumento**: Maior necessidade de atenção
+        - **Total de Atendimentos**: Quantidade absoluta por colaborador
+        - **Variação Percentual**: Evolução em relação ao período anterior
+        - **Média por Período**: Base para análise de produtividade
 
         5. **Insights**:
-        - 🎯 Melhor Performance: Menor tempo médio ou maior redução
-        - ⚠️ Oportunidade de Melhoria: Maior tempo médio ou maior aumento
+        - 🎯 Melhor Performance: Maior quantidade ou maior aumento
+        - ⚠️ Oportunidade de Melhoria: Menor quantidade ou maior redução
         """)
 
     try:
@@ -370,7 +346,6 @@ def mostrar_aba(dados, filtros):
         # Verificar se o período selecionado está contido nos dados
         if (filtros['periodo2']['inicio'] < data_min or 
             filtros['periodo2']['fim'] > data_max):
-            
             st.warning(
                 f"⚠️ Período selecionado ({filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} "
                 f"a {filtros['periodo2']['fim'].strftime('%d/%m/%Y')}) está fora do intervalo "
@@ -387,7 +362,7 @@ def mostrar_aba(dados, filtros):
             colaborador = st.selectbox(
                 "Selecione o Colaborador",
                 options=["Todos"] + colaboradores,
-                key="tempo_atend_colaborador",
+                key="qtd_atend_colaborador",
                 help="Escolha um colaborador específico ou 'Todos'"
             )
         
@@ -396,7 +371,7 @@ def mostrar_aba(dados, filtros):
             turno = st.selectbox(
                 "Selecione o Turno",
                 options=turnos,
-                key="tempo_atend_turno",
+                key="qtd_atend_turno",
                 help="Filtre por turno específico"
             )
             
@@ -405,7 +380,7 @@ def mostrar_aba(dados, filtros):
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
-                key="tempo_atend_cliente",
+                key="qtd_atend_cliente",
                 help="Filtre por cliente específico"
             )
 
@@ -421,7 +396,7 @@ def mostrar_aba(dados, filtros):
             data_selecionada = st.selectbox(
                 "Selecione a Data",
                 options=datas_opcoes,
-                key="tempo_atend_data",
+                key="qtd_atend_data",
                 help="Escolha uma data específica ou 'Todas' para ver o período completo"
             )
 
@@ -440,64 +415,28 @@ def mostrar_aba(dados, filtros):
         }
 
         # Calcular métricas para cada período com os filtros
-        dados_p1 = calcular_metricas_por_periodo(dados, filtros, 'periodo1', adicional_filters)
-        dados_p2 = calcular_metricas_por_periodo(dados, filtros, 'periodo2', adicional_filters)
-
-        if dados_p1.empty or dados_p2.empty:
+        atend_p1 = calcular_atendimentos_por_periodo(dados, filtros, 'periodo1', adicional_filters)
+        atend_p2 = calcular_atendimentos_por_periodo(dados, filtros, 'periodo2', adicional_filters)
+        
+        if atend_p1.empty or atend_p2.empty:
             st.warning("Não há dados suficientes para o período ou filtros selecionados.")
             return
 
-        # Criar gráfico comparativo
-        fig, df_merged = criar_grafico_comparativo(dados_p1, dados_p2, filtros)
-        
-        # Exibir gráfico
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Métricas gerais de variação
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            var_media = df_merged['variacao'].mean()
-            var_media_usuario = df_merged.loc[df_merged['variacao'].idxmin()]['usuário']  # Pega o nome do usuário
-            st.metric(
-                "Variação Média",
-                var_media_usuario,  # Nome do usuário como valor principal
-                f"{var_media:+.1f}%",  # Variação como delta
-                delta_color="normal"
+        # Cria e exibe o gráfico comparativo
+        fig = criar_grafico_comparativo(atend_p1, atend_p2, filtros)
+        if fig:
+            st.plotly_chart(
+                fig, 
+                use_container_width=True, 
+                key=f"grafico_atendimento_{st.session_state['tema_atual']}"
             )
-        
-        with col2:
-            melhor_var = df_merged.loc[df_merged['variacao'].idxmin()]
-            st.metric(
-                "Maior Redução (Melhor)",
-                melhor_var['usuário'],  # Nome do usuário como valor principal
-                f"{melhor_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
-            )
-        
-        with col3:
-            pior_var = df_merged.loc[df_merged['variacao'].idxmax()]
-            st.metric(
-                "Maior Aumento (Pior)",
-                pior_var['usuário'],  # Nome do usuário como valor principal
-                f"{pior_var['variacao']:.1f}%",  # Variação como delta
-                delta_color="normal"
-            )
-        
-        # Tabela detalhada
-        with st.expander("Ver dados detalhados", expanded=False):
-            st.dataframe(
-                df_merged.style.format({
-                    'tpatend_p1': '{:.1f}',
-                    'tpatend_p2': '{:.1f}',
-                    'variacao': '{:+.1f}%'
-                }),
-                use_container_width=True
-            )
-        
-        # Gerar insights detalhados
-        gerar_insights_atendimentos(dados_p1, dados_p2)
+            
+        # Adiciona insights abaixo do gráfico
+        st.markdown("---")
+        st.subheader("📈 Análise Detalhada")
+        with st.expander("Ver análise detalhada", expanded=True):
+            gerar_insights_atendimentos(atend_p1, atend_p2)
     
     except Exception as e:
-        st.error("Erro ao gerar análise de tempo de atendimento")
+        st.error(f"Erro ao mostrar aba: {str(e)}")
         st.exception(e)

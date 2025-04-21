@@ -191,11 +191,7 @@ def criar_grafico_ociosidade(metricas):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Visão Geral"""
-    # Formatar período para exibição
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    st.header(f"Visão Geral de Performance ({periodo})")
+    st.header("Visão Geral de Performance")
     
     # Adicionar seção explicativa
     with st.expander("ℹ️ Como funciona?", expanded=False):
@@ -313,7 +309,7 @@ def mostrar_aba(dados, filtros):
             media_atend = metricas['qtd_atendimentos'].mean()
             st.metric(
                 "Média de Atendimentos",
-                f"{int(media_atend)} atendimentos",
+                f"{media_atend:.1f}",
                 help="Média de atendimentos por colaborador"
             )
         
