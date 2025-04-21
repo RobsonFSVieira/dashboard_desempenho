@@ -73,8 +73,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             tabs = st.tabs([
                 "Visão Geral",
                 "Colaborador",
-                "Tempo de Atendimento",
-                "Quantidade de Atendimento"
+                "Tempo de Atendimento"
             ])
             
             with tabs[0]:
@@ -94,12 +93,6 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                     dp_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
-
-            with tabs[3]:
-                try:
-                    qtd_atendimento.mostrar_aba(dados, filtros)
-                except Exception as e:
-                    st.error(f"Erro na aba Quantidade de Atendimento: {str(e)}")
 
     except Exception as e:
         st.error("Erro crítico ao gerar o dashboard")

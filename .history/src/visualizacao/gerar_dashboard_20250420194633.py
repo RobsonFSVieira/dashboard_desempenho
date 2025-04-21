@@ -74,7 +74,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 "Visão Geral",
                 "Colaborador",
                 "Tempo de Atendimento",
-                "Quantidade de Atendimento"
+                "Quantidade de Atendimento"  # Nova aba adicionada
             ])
             
             with tabs[0]:
@@ -94,8 +94,8 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                     dp_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
-
-            with tabs[3]:
+            
+            with tabs[3]:  # Nova seção adicionada
                 try:
                     qtd_atendimento.mostrar_aba(dados, filtros)
                 except Exception as e:

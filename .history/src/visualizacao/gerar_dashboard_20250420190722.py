@@ -1,6 +1,10 @@
 import streamlit as st
-from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii, gates_hora
-from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend, qtd_atendimento
+from visualizacao.dashboards.operacoes_clientes import (
+    geral, mov_cliente, mov_operacao, tempo_atend, 
+    espera, permanencia, turnos, comboio_i, 
+    comboio_ii, gates_hora, qtd_atendimento
+)
+from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
@@ -35,7 +39,8 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 "Turnos",
                 "Gates em Atividade/Hora",
                 "Chegada em Comboio I",
-                "Chegada em Comboio II"
+                "Chegada em Comboio II",
+                "Quantidade de Atendimento"
             ])
             
             # Dicionário de funções de aba com tratamento de erro
@@ -49,7 +54,8 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 6: ('Turnos', turnos.mostrar_aba),
                 7: ('Gates em Atividade/Hora', gates_hora.mostrar_aba),
                 8: ('Chegada em Comboio I', comboio_i.mostrar_aba),
-                9: ('Chegada em Comboio II', comboio_ii.mostrar_aba)
+                9: ('Chegada em Comboio II', comboio_ii.mostrar_aba),
+                10: ('Quantidade de Atendimento', qtd_atendimento.mostrar_aba)
             }
             
             # Exibir abas com tratamento de erro aprimorado
@@ -73,8 +79,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             tabs = st.tabs([
                 "Visão Geral",
                 "Colaborador",
-                "Tempo de Atendimento",
-                "Quantidade de Atendimento"
+                "Tempo de Atendimento"
             ])
             
             with tabs[0]:
@@ -94,12 +99,6 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                     dp_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
-
-            with tabs[3]:
-                try:
-                    qtd_atendimento.mostrar_aba(dados, filtros)
-                except Exception as e:
-                    st.error(f"Erro na aba Quantidade de Atendimento: {str(e)}")
 
     except Exception as e:
         st.error("Erro crítico ao gerar o dashboard")

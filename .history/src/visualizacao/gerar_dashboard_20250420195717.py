@@ -1,6 +1,11 @@
 import streamlit as st
-from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii, gates_hora
-from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend, qtd_atendimento
+from visualizacao.dashboards.operacoes_clientes import (
+    geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, 
+    turnos, comboio_i, comboio_ii, gates_hora
+)
+from visualizacao.dashboards.desenvolvimento_pessoas import (
+    visao_geral, colaborador, tempo_atend as dp_tempo_atend, qtd_atendimento
+)
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
@@ -21,10 +26,6 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             return
             
         if tipo_dashboard == "Performance Cliente/Operação":
-            # Criar cache de estado para evitar recálculos
-            if 'dashboard_state' not in st.session_state:
-                st.session_state['dashboard_state'] = {}
-            
             tabs = st.tabs([
                 "Visão Geral", 
                 "Movimentação por Cliente", 
@@ -38,7 +39,6 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                 "Chegada em Comboio II"
             ])
             
-            # Dicionário de funções de aba com tratamento de erro
             tab_functions = {
                 0: ('Visão Geral', geral.mostrar_aba),
                 1: ('Movimentação por Cliente', mov_cliente.mostrar_aba),
@@ -94,7 +94,7 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
                     dp_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
-
+            
             with tabs[3]:
                 try:
                     qtd_atendimento.mostrar_aba(dados, filtros)
