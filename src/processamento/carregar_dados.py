@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import requests
+from io import BytesIO
 from datetime import datetime
 
 def validar_dados(df):
@@ -83,11 +85,49 @@ def validar_colunas(df):
     
     return df
 
+def carregar_dados_github():
+    """Carrega dados do repositório GitHub"""
+    try:
+        # URLs dos arquivos raw no GitHub
+        base_url = "https://raw.githubusercontent.com/RobsonFSVieira/dashboard_desempenho/main/dados"
+        urls = {
+            'base': f"{base_url}/base.xlsx",
+            'codigo': f"{base_url}/codigo.xlsx",
+            'medias': f"{base_url}/medias_atend.xlsx"
+        }
+        
+        dados = {}
+        
+        for key, url in urls.items():
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    content = BytesIO(response.content)
+                    if key == 'medias':
+                        dados[key] = pd.read_excel(content, sheet_name="DADOS")
+                    else:
+                        dados[key] = pd.read_excel(content)
+                else:
+                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
+                    return None
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
+                return None
+        
+        if len(dados) == 3:  # Verifica se todos os arquivos foram carregados
+            st.success("✅ Dados carregados com sucesso do GitHub!")
+            return dados
+        return None
+    
+    except Exception as e:
+        st.warning("⚠️ Erro ao acessar GitHub. Usando upload local...")
+        return None
+
 def carregar_dados():
     """Carrega e processa os arquivos necessários"""
     try:
-        # Criando expander para os uploads (iniciando fechado)
-        with st.sidebar.expander("📁 Upload de Arquivos", expanded=False):
+        # Upload manual sempre disponível na sidebar
+        with st.sidebar.expander("📁 Upload Manual de Arquivos", expanded=False):
             arquivo_base = st.file_uploader(
                 "Base de Dados (base.xlsx)", 
                 type="xlsx",
@@ -106,56 +146,58 @@ def carregar_dados():
                 help="Arquivo com as médias de atendimento"
             )
 
-        if not all([arquivo_base, arquivo_codigo, arquivo_medias]):
-            return None
-            
-        with st.spinner('Carregando dados...'):
-            try:
-                df_base = pd.read_excel(arquivo_base)
-            except Exception as e:
-                st.error(f"❌ Erro ao carregar base: {str(e)}")
-                return None
+        # Se arquivos foram enviados manualmente, usar eles
+        if all([arquivo_base, arquivo_codigo, arquivo_medias]):
+            with st.spinner('Carregando dados enviados...'):
+                try:
+                    df_base = pd.read_excel(arquivo_base)
+                    df_codigo = pd.read_excel(arquivo_codigo)
+                    df_medias = pd.read_excel(arquivo_medias, sheet_name="DADOS")
+                    
+                    # Validações e processamento
+                    df_base = validar_colunas(df_base)
+                    df_base = validar_dados(df_base)
+                    
+                    if df_base is not None:
+                        df_final = pd.merge(
+                            df_base,
+                            df_codigo[['prefixo', 'CLIENTE', 'OPERAÇÃO']],
+                            on='prefixo',
+                            how='left'
+                        )
+                        df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+                        
+                        return {
+                            'base': df_final,
+                            'medias': df_medias,
+                            'codigo': df_codigo
+                        }
+                except Exception as e:
+                    st.error(f"❌ Erro ao processar arquivos enviados: {str(e)}")
+                    return None
 
-            try:
-                df_codigo = pd.read_excel(arquivo_codigo)
-            except Exception as e:
-                st.error(f"❌ Erro ao carregar códigos: {str(e)}")
-                return None
-
-            try:
-                df_medias = pd.read_excel(arquivo_medias, sheet_name="DADOS")
-            except Exception as e:
-                st.error(f"❌ Erro ao carregar médias: {str(e)}")
-                return None
-            
-            # Validar e padronizar colunas
-            df_base = validar_colunas(df_base)
-            
-            # Validar dados
+        # Se não tem upload manual, tenta carregar do GitHub
+        dados_github = carregar_dados_github()
+        if dados_github:
+            df_base = validar_colunas(dados_github['base'])
             df_base = validar_dados(df_base)
             
-            if df_base is None:
-                return None
-            
-            # Merge com códigos
-            df_final = pd.merge(
-                df_base,
-                df_codigo[['prefixo', 'CLIENTE', 'OPERAÇÃO']],
-                on='prefixo',
-                how='left'
-            )
-            
-            # Verificar merge silenciosamente
-            has_missing = df_final['CLIENTE'].isna().any() or df_final['OPERAÇÃO'].isna().any()
-            
-            # Calcular tempo de permanência
-            df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
-            
-            return {
-                'base': df_final,
-                'medias': df_medias,
-                'codigo': df_codigo
-            }
+            if df_base is not None:
+                df_final = pd.merge(
+                    df_base,
+                    dados_github['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
+                    on='prefixo',
+                    how='left'
+                )
+                df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+                
+                return {
+                    'base': df_final,
+                    'medias': dados_github['medias'],
+                    'codigo': dados_github['codigo']
+                }
+
+        return None
             
     except Exception as e:
         st.error(f"❌ Erro no carregamento: {str(e)}")
