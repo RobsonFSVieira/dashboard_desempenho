@@ -151,36 +151,34 @@ def carregar_dados_github():
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
                     content = response.content
+                    temp_file = f"temp_{key}.xlsx"
                     
                     try:
-                        # Converter Excel para CSV com opções de parsing mais seguras
-                        csv_content = carregar_excel_como_csv(content)
+                        # Salvar arquivo temporário
+                        with open(temp_file, 'wb') as f:
+                            f.write(content)
                         
+                        # Usar pandas diretamente com opções básicas
                         if key == 'medias':
-                            dados[key] = pd.read_csv(
-                                csv_content,
-                                encoding='utf-8',
-                                sep='|',  # Usa | como delimitador
-                                dtype=str,
-                                quoting=1,  # QUOTE_ALL
-                                quotechar='"',
-                                on_bad_lines='warn'  # Avisa sobre linhas problemáticas
+                            dados[key] = pd.read_excel(
+                                temp_file,
+                                sheet_name="DADOS",
+                                engine='openpyxl'
                             )
                         else:
-                            dados[key] = pd.read_csv(
-                                csv_content,
-                                encoding='utf-8',
-                                sep='|',  # Usa | como delimitador
-                                dtype=str,
-                                quoting=1,  # QUOTE_ALL
-                                quotechar='"',
-                                on_bad_lines='warn'  # Avisa sobre linhas problemáticas
+                            dados[key] = pd.read_excel(
+                                temp_file,
+                                engine='openpyxl'
                             )
-                        
-                        # Converter tipos de dados depois da leitura
+                            
+                        # Converter tipos depois da leitura
                         if key == 'base':
                             for col in ['tpatend', 'tpesper']:
                                 dados[key][col] = pd.to_numeric(dados[key][col], errors='coerce')
+                        
+                        # Remover arquivo temporário
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
                             
                     except Exception as e:
                         st.error(f"""
@@ -189,6 +187,21 @@ def carregar_dados_github():
                         • Tamanho: {len(content)} bytes
                         • Content-Type: {response.headers.get('content-type')}
                         """)
+                        
+                        # Tentar carregar novamente com opções diferentes se falhar
+                        try:
+                            if os.path.exists(temp_file):
+                                dados[key] = pd.read_excel(
+                                    temp_file,
+                                    engine='openpyxl',
+                                    storage_options={'mode': 'rb'}
+                                )
+                        except:
+                            pass
+                        
+                        # Limpar arquivo no final
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
                         raise
                         
                 else:
