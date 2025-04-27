@@ -119,11 +119,21 @@ def carregar_dados_github():
                     else:
                         dados[key] = pd.read_excel(content, engine='openpyxl')
                 else:
-                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
+                    st.error(f"""
+                    ❌ Erro ao carregar {key}.xlsx do GitHub:
+                    • Status code: {response.status_code}
+                    • URL: {url}
+                    • Resposta: {response.text[:200]}...
+                    """)
                     return None
                     
             except Exception as e:
-                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
+                st.error(f"""
+                ❌ Erro ao processar {key}.xlsx do GitHub:
+                • Tipo do erro: {type(e).__name__}
+                • Mensagem: {str(e)}
+                • URL: {url}
+                """)
                 return None
         
         if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
@@ -132,7 +142,12 @@ def carregar_dados_github():
         return None
         
     except Exception as e:
-        st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
+        st.error(f"""
+        ❌ Erro ao acessar GitHub:
+        • Tipo do erro: {type(e).__name__}
+        • Mensagem: {str(e)}
+        • Traceback disponível no log
+        """)
         return None
 
 def carregar_dados_drive():
@@ -150,13 +165,26 @@ def carregar_dados_drive():
             try:
                 url = f'https://drive.google.com/uc?id={file_id}&export=download'
                 response = requests.get(url)
+                if response.status_code != 200:
+                    st.error(f"""
+                    ❌ Erro ao carregar {key} do Drive:
+                    • Status code: {response.status_code}
+                    • File ID: {file_id}
+                    • Resposta: {response.text[:200]}...
+                    """)
+                    return None
                 content = BytesIO(response.content)
                 if key == 'medias':
                     dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
                 else:
                     dados[key] = pd.read_excel(content, engine='openpyxl')
             except Exception as e:
-                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
+                st.error(f"""
+                ❌ Erro ao processar {key} do Drive:
+                • Tipo do erro: {type(e).__name__}
+                • Mensagem: {str(e)}
+                • File ID: {file_id}
+                """)
                 return None
         
         if len(dados) == 3:
@@ -164,7 +192,12 @@ def carregar_dados_drive():
             return dados
         return None
     except Exception as e:
-        st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
+        st.error(f"""
+        ❌ Erro no carregamento do Drive:
+        • Tipo do erro: {type(e).__name__}
+        • Mensagem: {str(e)}
+        • Traceback disponível no log
+        """)
         return None
 
 def processar_dados(dados):
