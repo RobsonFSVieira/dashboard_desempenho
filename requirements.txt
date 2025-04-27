@@ -5,4 +5,3 @@ plotly==5.18.0
 numpy==1.26.3
 python-dotenv==1.0.0
 protobuf==4.25.3
-xlrd==2.0.1

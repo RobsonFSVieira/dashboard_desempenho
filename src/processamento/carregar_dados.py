@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import requests
-from io import BytesIO, StringIO
+from io import BytesIO
 from datetime import datetime
 import base64
 import os
-import openpyxl
 
 def validar_dados(df):
     """Valida os dados conforme as premissas do projeto"""
@@ -88,38 +87,6 @@ def validar_colunas(df):
     
     return df
 
-def carregar_excel_como_csv(content):
-    """Converte conteúdo Excel para CSV na memória com tratamento de caracteres especiais"""
-    try:
-        workbook = openpyxl.load_workbook(BytesIO(content), read_only=True, data_only=True)
-        sheet = workbook.active
-        output = StringIO()
-        
-        # Escreve o CSV usando delimitador seguro e escape de caracteres
-        for row in sheet.rows:
-            # Trata cada célula para evitar problemas com delimitadores
-            values = []
-            for cell in row:
-                value = cell.value
-                if value is None:
-                    value = ''
-                # Converte para string e escapa caracteres especiais
-                value = str(value).replace('"', '""')
-                # Adiciona aspas se houver caracteres especiais
-                if ',' in value or '"' in value or '\n' in value:
-                    value = f'"{value}"'
-                values.append(value)
-            
-            # Une células com delimitador seguro
-            output.write('|'.join(values) + '\n')
-        
-        output.seek(0)
-        return output
-        
-    except Exception as e:
-        st.error(f"Erro na conversão Excel->CSV: {str(e)}")
-        raise
-
 def carregar_dados_github():
     """Carrega dados do repositório GitHub"""
     try:
@@ -128,21 +95,17 @@ def carregar_dados_github():
         repo_name = "dashboard_desempenho"
         branch = "main"
         
-        # URLs para download direto usando githubusercontent
-        base_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados"
+        # URLs para download direto (usando a URL correta do GitHub)
         files = {
-            'base': f"{base_url}/base.xlsx",
-            'codigo': f"{base_url}/codigo.xlsx",
-            'medias': f"{base_url}/medias_atend.xlsx"
+            'base': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/base.xlsx",
+            'codigo': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/codigo.xlsx",
+            'medias': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/medias_atend.xlsx"
         }
         
         headers = {
             'Accept': 'application/vnd.github.v3.raw',
-            'User-Agent': 'Mozilla/5.0',  # Add user agent
-            'Authorization': f'token {os.getenv("GITHUB_TOKEN")}' if os.getenv("GITHUB_TOKEN") else None
+            'User-Agent': 'Python/requests'
         }
-        # Remove None values from headers
-        headers = {k: v for k, v in headers.items() if v is not None}
         
         dados = {}
         
@@ -150,69 +113,26 @@ def carregar_dados_github():
             try:
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
-                    # Usar BytesIO ao invés de arquivo temporário
-                    excel_data = BytesIO(response.content)
-                    
-                    try:
-                        # Tentar ler direto da memória
-                        if key == 'medias':
-                            dados[key] = pd.read_excel(
-                                excel_data,
-                                sheet_name="DADOS",
-                                engine='openpyxl',
-                                storage_options=None
-                            )
-                        else:
-                            dados[key] = pd.read_excel(
-                                excel_data,
-                                engine='openpyxl',
-                                storage_options=None
-                            )
-                            
-                        # Converter tipos depois da leitura
-                        if key == 'base':
-                            for col in ['tpatend', 'tpesper']:
-                                dados[key][col] = pd.to_numeric(dados[key][col], errors='coerce')
-                                
-                    except Exception as e:
-                        st.error(f"""
-                        ❌ Erro ao processar arquivo {key}:
-                        • Erro: {str(e)}
-                        • Tamanho: {len(response.content)} bytes
-                        • Content-Type: {response.headers.get('content-type')}
-                        """)
-                        raise
-                        
+                    content = BytesIO(response.content)
+                    if key == 'medias':
+                        dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
+                    else:
+                        dados[key] = pd.read_excel(content, engine='openpyxl')
                 else:
-                    st.error(f"""
-                    ❌ Erro ao acessar {key}.xlsx (Status: {response.status_code}):
-                    • URL: {url}
-                    • Headers: {headers}
-                    • Resposta: {response.text[:200]}...
-                    """)
+                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
                     return None
                     
-            except requests.RequestException as req_err:
-                st.error(f"""
-                ❌ Erro de requisição para {key}.xlsx:
-                • Tipo: {type(req_err).__name__}
-                • Mensagem: {str(req_err)}
-                • URL: {url}
-                """)
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
                 return None
-                
-        if len(dados) == 3:
+        
+        if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
             st.success("✅ Dados carregados com sucesso do GitHub!")
             return dados
         return None
         
     except Exception as e:
-        st.error(f"""
-        ❌ Erro ao acessar GitHub:
-        • Tipo: {type(e).__name__}
-        • Mensagem: {str(e)}
-        • Stack trace: {st.exception(e)}
-        """)
+        st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
         return None
 
 def carregar_dados_drive():
@@ -230,26 +150,13 @@ def carregar_dados_drive():
             try:
                 url = f'https://drive.google.com/uc?id={file_id}&export=download'
                 response = requests.get(url)
-                if response.status_code != 200:
-                    st.error(f"""
-                    ❌ Erro ao carregar {key} do Drive:
-                    • Status code: {response.status_code}
-                    • File ID: {file_id}
-                    • Resposta: {response.text[:200]}...
-                    """)
-                    return None
                 content = BytesIO(response.content)
                 if key == 'medias':
                     dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
                 else:
                     dados[key] = pd.read_excel(content, engine='openpyxl')
             except Exception as e:
-                st.error(f"""
-                ❌ Erro ao processar {key} do Drive:
-                • Tipo do erro: {type(e).__name__}
-                • Mensagem: {str(e)}
-                • File ID: {file_id}
-                """)
+                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
                 return None
         
         if len(dados) == 3:
@@ -257,12 +164,7 @@ def carregar_dados_drive():
             return dados
         return None
     except Exception as e:
-        st.error(f"""
-        ❌ Erro no carregamento do Drive:
-        • Tipo do erro: {type(e).__name__}
-        • Mensagem: {str(e)}
-        • Traceback disponível no log
-        """)
+        st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
         return None
 
 def processar_dados(dados):
