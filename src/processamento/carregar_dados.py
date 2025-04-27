@@ -4,6 +4,7 @@ import requests
 from io import BytesIO
 from datetime import datetime
 import base64
+import os
 
 def validar_dados(df):
     """Valida os dados conforme as premissas do projeto"""
@@ -134,28 +135,93 @@ def carregar_dados_github():
         st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
         return None
 
+def carregar_dados_drive():
+    """Carrega dados do Google Drive"""
+    try:
+        # IDs dos arquivos no Google Drive
+        files = {
+            'base': '1YYaTE-zEi-TIL1quQ5VPsZqeZPQzGFNK',
+            'codigo': '18QcILseDPRrFMM-I81_ZephiAAJcD1Tf',
+            'medias': '17m7LLKLlwksbSyXlRBYKYniNPNL3f_ds'
+        }
+        
+        dados = {}
+        for key, file_id in files.items():
+            try:
+                url = f'https://drive.google.com/uc?id={file_id}&export=download'
+                response = requests.get(url)
+                content = BytesIO(response.content)
+                if key == 'medias':
+                    dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
+                else:
+                    dados[key] = pd.read_excel(content, engine='openpyxl')
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
+                return None
+        
+        if len(dados) == 3:
+            st.success("✅ Dados carregados com sucesso do Drive!")
+            return dados
+        return None
+    except Exception as e:
+        st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
+        return None
+
+def processar_dados(dados):
+    """Processa os dados carregados"""
+    try:
+        df_base = validar_colunas(dados['base'])
+        df_base = validar_dados(df_base)
+        
+        if df_base is not None:
+            df_final = pd.merge(
+                df_base,
+                dados['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
+                on='prefixo',
+                how='left'
+            )
+            df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+            
+            return {
+                'base': df_final,
+                'medias': dados['medias'],
+                'codigo': dados['codigo']
+            }
+        return None
+    except Exception as e:
+        st.error(f"❌ Erro no processamento: {str(e)}")
+        return None
+
 def carregar_dados():
     """Carrega e processa os arquivos necessários"""
-    try:
-        # Upload manual sempre disponível na sidebar
-        with st.sidebar.expander("📁 Upload Manual de Arquivos", expanded=False):
-            arquivo_base = st.file_uploader(
-                "Base de Dados (base.xlsx)", 
-                type="xlsx",
-                help="Arquivo com os dados brutos de atendimento"
-            )
-            
-            arquivo_codigo = st.file_uploader(
-                "Códigos (codigo.xlsx)", 
-                type="xlsx",
-                help="Arquivo com os códigos de cliente e operação"
-            )
-            
-            arquivo_medias = st.file_uploader(
-                "Médias (medias_atend.xlsx)", 
-                type="xlsx",
-                help="Arquivo com as médias de atendimento"
-            )
+    # Verifica se está rodando no Streamlit Cloud
+    is_cloud = os.getenv('STREAMLIT_CLOUD', 'false').lower() == 'true'
+    
+    if is_cloud:
+        # Tenta carregar do Drive primeiro
+        dados = carregar_dados_drive()
+        if dados:
+            return processar_dados(dados)
+    
+    # Se não estiver na nuvem ou falhar, usa interface de upload
+    with st.sidebar.expander("📁 Upload Manual de Arquivos", expanded=not is_cloud):
+        arquivo_base = st.file_uploader(
+            "Base de Dados (base.xlsx)", 
+            type="xlsx",
+            help="Arquivo com os dados brutos de atendimento"
+        )
+        
+        arquivo_codigo = st.file_uploader(
+            "Códigos (codigo.xlsx)", 
+            type="xlsx",
+            help="Arquivo com os códigos de cliente e operação"
+        )
+        
+        arquivo_medias = st.file_uploader(
+            "Médias (medias_atend.xlsx)", 
+            type="xlsx",
+            help="Arquivo com as médias de atendimento"
+        )
 
         # Se arquivos foram enviados manualmente, usar eles
         if all([arquivo_base, arquivo_codigo, arquivo_medias]):
@@ -190,26 +256,6 @@ def carregar_dados():
         # Se não tem upload manual, tenta carregar do GitHub
         dados_github = carregar_dados_github()
         if dados_github:
-            df_base = validar_colunas(dados_github['base'])
-            df_base = validar_dados(df_base)
-            
-            if df_base is not None:
-                df_final = pd.merge(
-                    df_base,
-                    dados_github['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
-                    on='prefixo',
-                    how='left'
-                )
-                df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
-                
-                return {
-                    'base': df_final,
-                    'medias': dados_github['medias'],
-                    'codigo': dados_github['codigo']
-                }
+            return processar_dados(dados_github)
 
-        return None
-            
-    except Exception as e:
-        st.error(f"❌ Erro no carregamento: {str(e)}")
         return None
