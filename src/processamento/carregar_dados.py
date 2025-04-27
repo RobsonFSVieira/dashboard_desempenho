@@ -119,24 +119,57 @@ def carregar_dados_github():
                 if response.status_code == 200:
                     # Verificar se o conteúdo é válido
                     content = response.content
-                    if len(content) < 100:  # Arquivo muito pequeno pode indicar erro
-                        raise ValueError(f"Conteúdo do arquivo {key} parece inválido (muito pequeno)")
+                    if len(content) < 100:
+                        raise ValueError(f"Conteúdo do arquivo {key} muito pequeno")
                     
                     content_io = BytesIO(content)
+                    
+                    # Excel reading options simplificadas
+                    excel_options = {
+                        'engine': 'openpyxl',
+                    }
+                    
                     try:
                         if key == 'medias':
-                            dados[key] = pd.read_excel(content_io, sheet_name="DADOS", engine='openpyxl')
+                            dados[key] = pd.read_excel(
+                                content_io,
+                                sheet_name="DADOS",
+                                **excel_options
+                            )
                         else:
-                            dados[key] = pd.read_excel(content_io, engine='openpyxl')
+                            # Try reading with basic options
+                            try:
+                                dados[key] = pd.read_excel(content_io, **excel_options)
+                            except Exception as first_try_err:
+                                # If first attempt fails, try with different options
+                                content_io.seek(0)  # Reset buffer position
+                                excel_options.update({
+                                    'na_values': [''],  # Only empty cells are NA
+                                    'keep_default_na': False  # Don't use default NA values
+                                })
+                                dados[key] = pd.read_excel(content_io, **excel_options)
+                    
                     except Exception as excel_err:
                         st.error(f"""
                         ❌ Erro ao ler arquivo Excel {key}:
                         • Tipo: {type(excel_err).__name__}
                         • Mensagem: {str(excel_err)}
                         • Tamanho do conteúdo: {len(content)} bytes
-                        • Primeiros bytes: {content[:100].hex()}
+                        • Headers de resposta: {dict(response.headers)}
+                        • Content-Type: {response.headers.get('content-type', 'N/A')}
+                        • Primeiros bytes: {content[:50].hex()}
                         """)
+                        
+                        # Save problematic file for debugging
+                        try:
+                            debug_path = f"debug_{key}.xlsx"
+                            with open(debug_path, "wb") as f:
+                                f.write(content)
+                            st.info(f"Arquivo problemático salvo em: {debug_path}")
+                        except:
+                            pass
                         raise
+                        
                 else:
                     st.error(f"""
                     ❌ Erro ao acessar {key}.xlsx (Status: {response.status_code}):
