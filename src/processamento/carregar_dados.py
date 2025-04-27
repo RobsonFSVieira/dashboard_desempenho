@@ -88,19 +88,30 @@ def validar_colunas(df):
 def carregar_dados_github():
     """Carrega dados do repositório GitHub"""
     try:
-        # URLs dos arquivos raw no GitHub
-        base_url = "https://raw.githubusercontent.com/RobsonFSVieira/dashboard_desempenho/main/dados"
-        urls = {
-            'base': f"{base_url}/base.xlsx",
-            'codigo': f"{base_url}/codigo.xlsx",
-            'medias': f"{base_url}/medias_atend.xlsx"
+        # Configuração da API do GitHub
+        owner = "RobsonFSVieira"
+        repo = "dashboard_desempenho"
+        branch = "main"
+        path = "dados"
+        
+        # URLs da API do GitHub
+        api_base = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+        headers = {'Accept': 'application/vnd.github.v3.raw'}
+        
+        # Mapeamento de arquivos
+        arquivos = {
+            'base': 'base.xlsx',
+            'codigo': 'codigo.xlsx',
+            'medias': 'medias_atend.xlsx'
         }
         
         dados = {}
         
-        for key, url in urls.items():
+        for key, filename in arquivos.items():
             try:
-                response = requests.get(url, timeout=10)
+                url = f"{api_base}/{filename}?ref={branch}"
+                response = requests.get(url, headers=headers, timeout=10)
+                
                 if response.status_code == 200:
                     content = BytesIO(response.content)
                     if key == 'medias':
@@ -108,19 +119,19 @@ def carregar_dados_github():
                     else:
                         dados[key] = pd.read_excel(content)
                 else:
-                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
+                    st.warning(f"⚠️ Arquivo {filename} não encontrado no GitHub (Status: {response.status_code})")
                     return None
             except Exception as e:
-                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
+                st.warning(f"⚠️ Erro ao carregar {filename}: {str(e)}")
                 return None
         
-        if len(dados) == 3:  # Verifica se todos os arquivos foram carregados
+        if len(dados) == 3:
             st.success("✅ Dados carregados com sucesso do GitHub!")
             return dados
         return None
     
     except Exception as e:
-        st.warning("⚠️ Erro ao acessar GitHub. Usando upload local...")
+        st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
         return None
 
 def carregar_dados():
