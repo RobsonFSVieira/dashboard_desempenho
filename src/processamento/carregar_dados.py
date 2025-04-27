@@ -89,18 +89,28 @@ def validar_colunas(df):
 def carregar_dados_github():
     """Carrega dados do repositório GitHub"""
     try:
-        # URLs diretas dos arquivos no GitHub
-        urls = {
-            'base': 'https://github.com/RobsonFSVieira/dashboard_desempenho/raw/main/dados/base.xlsx',
-            'codigo': 'https://github.com/RobsonFSVieira/dashboard_desempenho/raw/main/dados/codigo.xlsx',
-            'medias': 'https://github.com/RobsonFSVieira/dashboard_desempenho/raw/main/dados/medias_atend.xlsx'
+        # Configuração base da API do GitHub
+        repo_owner = "RobsonFSVieira"
+        repo_name = "dashboard_desempenho"
+        branch = "main"
+        
+        # URLs para download direto (usando a URL correta do GitHub)
+        files = {
+            'base': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/base.xlsx",
+            'codigo': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/codigo.xlsx",
+            'medias': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/medias_atend.xlsx"
+        }
+        
+        headers = {
+            'Accept': 'application/vnd.github.v3.raw',
+            'User-Agent': 'Python/requests'
         }
         
         dados = {}
         
-        for key, url in urls.items():
+        for key, url in files.items():
             try:
-                response = requests.get(url, timeout=30)
+                response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
                     content = BytesIO(response.content)
                     if key == 'medias':
@@ -108,19 +118,18 @@ def carregar_dados_github():
                     else:
                         dados[key] = pd.read_excel(content, engine='openpyxl')
                 else:
-                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado (Status: {response.status_code})")
-                    st.write(f"URL tentada: {url}")
+                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
                     return None
+                    
             except Exception as e:
                 st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
-                st.write(f"URL tentada: {url}")
                 return None
         
-        if len(dados) == 3:
+        if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
             st.success("✅ Dados carregados com sucesso do GitHub!")
             return dados
         return None
-    
+        
     except Exception as e:
         st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
         return None
