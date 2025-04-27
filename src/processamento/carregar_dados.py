@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import requests
-from io import BytesIO
+from io import BytesIO, StringIO
 from datetime import datetime
 import base64
 import os
+import openpyxl
 
 def validar_dados(df):
     """Valida os dados conforme as premissas do projeto"""
@@ -87,6 +88,38 @@ def validar_colunas(df):
     
     return df
 
+def carregar_excel_como_csv(content):
+    """Converte conteúdo Excel para CSV na memória com tratamento de caracteres especiais"""
+    try:
+        workbook = openpyxl.load_workbook(BytesIO(content), read_only=True, data_only=True)
+        sheet = workbook.active
+        output = StringIO()
+        
+        # Escreve o CSV usando delimitador seguro e escape de caracteres
+        for row in sheet.rows:
+            # Trata cada célula para evitar problemas com delimitadores
+            values = []
+            for cell in row:
+                value = cell.value
+                if value is None:
+                    value = ''
+                # Converte para string e escapa caracteres especiais
+                value = str(value).replace('"', '""')
+                # Adiciona aspas se houver caracteres especiais
+                if ',' in value or '"' in value or '\n' in value:
+                    value = f'"{value}"'
+                values.append(value)
+            
+            # Une células com delimitador seguro
+            output.write('|'.join(values) + '\n')
+        
+        output.seek(0)
+        return output
+        
+    except Exception as e:
+        st.error(f"Erro na conversão Excel->CSV: {str(e)}")
+        raise
+
 def carregar_dados_github():
     """Carrega dados do repositório GitHub"""
     try:
@@ -118,38 +151,46 @@ def carregar_dados_github():
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
                     content = response.content
-                    if len(content) < 100:
-                        raise ValueError(f"Conteúdo do arquivo {key} muito pequeno")
-                    
-                    # Salvar conteúdo em arquivo temporário
-                    temp_file = f"temp_{key}.xlsx"
-                    with open(temp_file, "wb") as f:
-                        f.write(content)
                     
                     try:
-                        # Tentar ler o arquivo salvo
+                        # Converter Excel para CSV com opções de parsing mais seguras
+                        csv_content = carregar_excel_como_csv(content)
+                        
                         if key == 'medias':
-                            dados[key] = pd.read_excel(
-                                temp_file,
-                                sheet_name="DADOS"
+                            dados[key] = pd.read_csv(
+                                csv_content,
+                                encoding='utf-8',
+                                sep='|',  # Usa | como delimitador
+                                dtype=str,
+                                quoting=1,  # QUOTE_ALL
+                                quotechar='"',
+                                on_bad_lines='warn'  # Avisa sobre linhas problemáticas
                             )
                         else:
-                            dados[key] = pd.read_excel(temp_file)
+                            dados[key] = pd.read_csv(
+                                csv_content,
+                                encoding='utf-8',
+                                sep='|',  # Usa | como delimitador
+                                dtype=str,
+                                quoting=1,  # QUOTE_ALL
+                                quotechar='"',
+                                on_bad_lines='warn'  # Avisa sobre linhas problemáticas
+                            )
+                        
+                        # Converter tipos de dados depois da leitura
+                        if key == 'base':
+                            for col in ['tpatend', 'tpesper']:
+                                dados[key][col] = pd.to_numeric(dados[key][col], errors='coerce')
                             
                     except Exception as e:
                         st.error(f"""
-                        ❌ Erro ao ler arquivo Excel {key}:
+                        ❌ Erro ao processar arquivo {key}:
                         • Erro: {str(e)}
                         • Tamanho: {len(content)} bytes
                         • Content-Type: {response.headers.get('content-type')}
                         """)
                         raise
                         
-                    finally:
-                        # Limpar arquivo temporário
-                        if os.path.exists(temp_file):
-                            os.remove(temp_file)
-                            
                 else:
                     st.error(f"""
                     ❌ Erro ao acessar {key}.xlsx (Status: {response.status_code}):
