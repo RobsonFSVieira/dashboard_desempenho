@@ -95,17 +95,21 @@ def carregar_dados_github():
         repo_name = "dashboard_desempenho"
         branch = "main"
         
-        # URLs para download direto (usando a URL correta do GitHub)
+        # URLs para download direto usando githubusercontent
+        base_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados"
         files = {
-            'base': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/base.xlsx",
-            'codigo': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/codigo.xlsx",
-            'medias': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/medias_atend.xlsx"
+            'base': f"{base_url}/base.xlsx",
+            'codigo': f"{base_url}/codigo.xlsx",
+            'medias': f"{base_url}/medias_atend.xlsx"
         }
         
         headers = {
             'Accept': 'application/vnd.github.v3.raw',
-            'User-Agent': 'Python/requests'
+            'User-Agent': 'Mozilla/5.0',  # Add user agent
+            'Authorization': f'token {os.getenv("GITHUB_TOKEN")}' if os.getenv("GITHUB_TOKEN") else None
         }
+        # Remove None values from headers
+        headers = {k: v for k, v in headers.items() if v is not None}
         
         dados = {}
         
@@ -113,30 +117,45 @@ def carregar_dados_github():
             try:
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
-                    content = BytesIO(response.content)
-                    if key == 'medias':
-                        dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
-                    else:
-                        dados[key] = pd.read_excel(content, engine='openpyxl')
+                    # Verificar se o conteúdo é válido
+                    content = response.content
+                    if len(content) < 100:  # Arquivo muito pequeno pode indicar erro
+                        raise ValueError(f"Conteúdo do arquivo {key} parece inválido (muito pequeno)")
+                    
+                    content_io = BytesIO(content)
+                    try:
+                        if key == 'medias':
+                            dados[key] = pd.read_excel(content_io, sheet_name="DADOS", engine='openpyxl')
+                        else:
+                            dados[key] = pd.read_excel(content_io, engine='openpyxl')
+                    except Exception as excel_err:
+                        st.error(f"""
+                        ❌ Erro ao ler arquivo Excel {key}:
+                        • Tipo: {type(excel_err).__name__}
+                        • Mensagem: {str(excel_err)}
+                        • Tamanho do conteúdo: {len(content)} bytes
+                        • Primeiros bytes: {content[:100].hex()}
+                        """)
+                        raise
                 else:
                     st.error(f"""
-                    ❌ Erro ao carregar {key}.xlsx do GitHub:
-                    • Status code: {response.status_code}
+                    ❌ Erro ao acessar {key}.xlsx (Status: {response.status_code}):
                     • URL: {url}
+                    • Headers: {headers}
                     • Resposta: {response.text[:200]}...
                     """)
                     return None
                     
-            except Exception as e:
+            except requests.RequestException as req_err:
                 st.error(f"""
-                ❌ Erro ao processar {key}.xlsx do GitHub:
-                • Tipo do erro: {type(e).__name__}
-                • Mensagem: {str(e)}
+                ❌ Erro de requisição para {key}.xlsx:
+                • Tipo: {type(req_err).__name__}
+                • Mensagem: {str(req_err)}
                 • URL: {url}
                 """)
                 return None
-        
-        if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
+                
+        if len(dados) == 3:
             st.success("✅ Dados carregados com sucesso do GitHub!")
             return dados
         return None
@@ -144,9 +163,9 @@ def carregar_dados_github():
     except Exception as e:
         st.error(f"""
         ❌ Erro ao acessar GitHub:
-        • Tipo do erro: {type(e).__name__}
+        • Tipo: {type(e).__name__}
         • Mensagem: {str(e)}
-        • Traceback disponível no log
+        • Stack trace: {st.exception(e)}
         """)
         return None
 
