@@ -150,58 +150,37 @@ def carregar_dados_github():
             try:
                 response = requests.get(url, headers=headers, timeout=30)
                 if response.status_code == 200:
-                    content = response.content
-                    temp_file = f"temp_{key}.xlsx"
+                    # Usar BytesIO ao invés de arquivo temporário
+                    excel_data = BytesIO(response.content)
                     
                     try:
-                        # Salvar arquivo temporário
-                        with open(temp_file, 'wb') as f:
-                            f.write(content)
-                        
-                        # Usar pandas diretamente com opções básicas
+                        # Tentar ler direto da memória
                         if key == 'medias':
                             dados[key] = pd.read_excel(
-                                temp_file,
+                                excel_data,
                                 sheet_name="DADOS",
-                                engine='openpyxl'
+                                engine='openpyxl',
+                                storage_options=None
                             )
                         else:
                             dados[key] = pd.read_excel(
-                                temp_file,
-                                engine='openpyxl'
+                                excel_data,
+                                engine='openpyxl',
+                                storage_options=None
                             )
                             
                         # Converter tipos depois da leitura
                         if key == 'base':
                             for col in ['tpatend', 'tpesper']:
                                 dados[key][col] = pd.to_numeric(dados[key][col], errors='coerce')
-                        
-                        # Remover arquivo temporário
-                        if os.path.exists(temp_file):
-                            os.remove(temp_file)
-                            
+                                
                     except Exception as e:
                         st.error(f"""
                         ❌ Erro ao processar arquivo {key}:
                         • Erro: {str(e)}
-                        • Tamanho: {len(content)} bytes
+                        • Tamanho: {len(response.content)} bytes
                         • Content-Type: {response.headers.get('content-type')}
                         """)
-                        
-                        # Tentar carregar novamente com opções diferentes se falhar
-                        try:
-                            if os.path.exists(temp_file):
-                                dados[key] = pd.read_excel(
-                                    temp_file,
-                                    engine='openpyxl',
-                                    storage_options={'mode': 'rb'}
-                                )
-                        except:
-                            pass
-                        
-                        # Limpar arquivo no final
-                        if os.path.exists(temp_file):
-                            os.remove(temp_file)
                         raise
                         
                 else:
