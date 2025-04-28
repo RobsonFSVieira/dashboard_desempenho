@@ -1,29 +1,67 @@
 import streamlit as st
 from datetime import datetime, timedelta
 from visualizacao.tema import Tema
+import pandas as pd
+
+def obter_datas_disponiveis(df):
+    """Obtém as datas mínima e máxima disponíveis no DataFrame"""
+    try:
+        # Garantir que as datas estão no formato correto
+        df['retirada'] = pd.to_datetime(df['retirada'], format='mixed', dayfirst=True)
+        
+        # Obter data mínima e máxima
+        data_min = df['retirada'].dt.date.min()
+        data_max = df['retirada'].dt.date.max()
+        
+        # Garantir que não temos datas futuras
+        hoje = datetime.now().date()
+        if data_max > hoje:
+            data_max = hoje
+            
+        return data_min, data_max
+    except Exception as e:
+        st.error("Erro ao processar datas. Verifique o formato da coluna DATA no arquivo.")
+        hoje = datetime.now().date()
+        return hoje - timedelta(days=60), hoje
 
 def criar_filtros():
     """Cria e gerencia os filtros na sidebar"""
     st.sidebar.header("Filtros de Análise")
     
+    # Verifica se há dados carregados
+    if 'dados' not in st.session_state or st.session_state.dados is None:
+        return None
+    
+    df = st.session_state.dados['base']
+    data_min, data_max = obter_datas_disponiveis(df)
+    
     # Seção de Períodos em um expander
-    with st.sidebar.expander("📅 Períodos de Análise", expanded=False):
-        # Configuração do formato de data brasileiro
-        locale_date = lambda x: x.strftime('%d/%m/%Y')
+    with st.sidebar.expander("📅 Períodos de Análise", expanded=True):
+        # Mostra o período disponível na base dentro do expander
+        st.info(f"📅 Período disponível na base:\nDe {data_min.strftime('%d/%m/%Y')} até {data_max.strftime('%d/%m/%Y')}")
+        
+        # Ajusta as datas padrão para garantir que estejam dentro do intervalo
+        hoje = min(data_max, datetime.now().date())
+        um_mes_atras = max(hoje - timedelta(days=30), data_min)
+        dois_meses_atras = max(hoje - timedelta(days=60), data_min)
         
         # Período 1 (Comparação)
         col1, col2 = st.columns(2)
         with col1:
             data_inicio_p1 = st.date_input(
                 "Início P1",
-                value=(datetime.now() - timedelta(days=60)).date(),
+                value=dois_meses_atras,
+                min_value=data_min,
+                max_value=data_max,
                 help="Data inicial do primeiro período",
                 format="DD/MM/YYYY"
             )
         with col2:
             data_fim_p1 = st.date_input(
                 "Fim P1",
-                value=(datetime.now() - timedelta(days=31)).date(),
+                value=um_mes_atras,
+                min_value=data_min,
+                max_value=data_max,
                 help="Data final do primeiro período",
                 format="DD/MM/YYYY"
             )
@@ -33,30 +71,48 @@ def criar_filtros():
         with col3:
             data_inicio_p2 = st.date_input(
                 "Início P2",
-                value=(datetime.now() - timedelta(days=30)).date(),
+                value=um_mes_atras,
+                min_value=data_min,
+                max_value=data_max,
                 help="Data inicial do segundo período",
                 format="DD/MM/YYYY"
             )
         with col4:
             data_fim_p2 = st.date_input(
                 "Fim P2",
-                value=datetime.now().date(),
+                value=hoje,
+                min_value=data_min,
+                max_value=data_max,
                 help="Data final do segundo período",
                 format="DD/MM/YYYY"
             )
         
-        # Validação das datas
-        if data_fim_p1 < data_inicio_p1 or data_fim_p2 < data_inicio_p2:
-            st.sidebar.error("⚠️ Data final deve ser maior que data inicial!")
+        # Verificar se as datas selecionadas estão dentro do intervalo válido
+        periodo_valido = (
+            data_inicio_p1 >= data_min and
+            data_fim_p1 <= data_max and
+            data_inicio_p2 >= data_min and
+            data_fim_p2 <= data_max and
+            data_fim_p1 >= data_inicio_p1 and
+            data_fim_p2 >= data_inicio_p2
+        )
+        
+        if not periodo_valido:
+            st.error(f"""
+            ⚠️ Período selecionado fora do intervalo disponível!
+            
+            Período disponível na base de dados:
+            • De: {data_min.strftime('%d/%m/%Y')}
+            • Até: {data_max.strftime('%d/%m/%Y')}
+            """)
             return None
-    
+
     # Só mostra os filtros se houver dados carregados
     if st.session_state.dados is not None:
-        df = st.session_state.dados['base']
-        
         # Filtro de Clientes em um expander
         with st.sidebar.expander("👥 Clientes", expanded=False):
-            clientes = ["Todos"] + sorted(df['CLIENTE'].unique().tolist())
+            # Convert all values to strings and handle NaN values
+            clientes = ["Todos"] + sorted(df['CLIENTE'].fillna('').astype(str).unique().tolist())
             cliente = st.multiselect(
                 "Cliente",
                 options=clientes,
@@ -66,7 +122,7 @@ def criar_filtros():
         
         # Filtro de Operações em um expander
         with st.sidebar.expander("🔧 Operações", expanded=False):
-            operacoes = ["Todas"] + sorted(df['OPERAÇÃO'].unique().tolist())
+            operacoes = ["Todas"] + sorted(df['OPERAÇÃO'].fillna('').astype(str).unique().tolist())
             operacao = st.multiselect(
                 "Operação",
                 options=operacoes,

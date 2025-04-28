@@ -9,10 +9,26 @@ import os
 def validar_dados(df):
     """Valida os dados conforme as premissas do projeto"""
     try:
-        # Convertendo colunas de tempo para datetime
-        df['retirada'] = pd.to_datetime(df['retirada'])
-        df['inicio'] = pd.to_datetime(df['inicio'])
-        df['fim'] = pd.to_datetime(df['fim'])
+        # Identificar formato da data baseado nos primeiros valores não-nulos
+        date_sample = df['retirada'].dropna().iloc[0]
+        
+        # Converter datas usando formato adequado
+        try:
+            # Tentar primeiro como datetime
+            df['retirada'] = pd.to_datetime(df['retirada'], format='mixed', dayfirst=True)
+            df['inicio'] = pd.to_datetime(df['inicio'], format='mixed', dayfirst=True)
+            df['fim'] = pd.to_datetime(df['fim'], format='mixed', dayfirst=True)
+        except:
+            # Se falhar, tentar como string e converter
+            df['retirada'] = pd.to_datetime(df['retirada'].astype(str), format='mixed', dayfirst=True)
+            df['inicio'] = pd.to_datetime(df['inicio'].astype(str), format='mixed', dayfirst=True)
+            df['fim'] = pd.to_datetime(df['fim'].astype(str), format='mixed', dayfirst=True)
+        
+        # Remover registros com datas futuras
+        hoje = pd.Timestamp.now()
+        df = df[df['retirada'] <= hoje]
+        df = df[df['inicio'] <= hoje]
+        df = df[df['fim'] <= hoje]
         
         # Aplicando filtros conforme premissas
         df = df[
@@ -173,21 +189,38 @@ def processar_dados(dados):
         df_base = validar_colunas(dados['base'])
         df_base = validar_dados(df_base)
         
-        if df_base is not None:
-            df_final = pd.merge(
-                df_base,
-                dados['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
-                on='prefixo',
-                how='left'
-            )
-            df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+        if df_base is None:
+            st.error("Falha ao validar dados da base")
+            return None
             
-            return {
-                'base': df_final,
-                'medias': dados['medias'],
-                'codigo': dados['codigo']
-            }
-        return None
+        # Garantir que temos dados válidos antes de continuar
+        if df_base.empty:
+            st.error("Base de dados vazia após validação")
+            return None
+            
+        # Verificar datas mais antiga e mais recente
+        data_min = df_base['retirada'].min().date()
+        data_max = df_base['retirada'].max().date()
+        
+        st.info(f"""
+        📅 Período disponível na base:
+        • De: {data_min.strftime('%d/%m/%Y')}
+        • Até: {data_max.strftime('%d/%m/%Y')}
+        """)
+        
+        df_final = pd.merge(
+            df_base,
+            dados['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
+            on='prefixo',
+            how='left'
+        )
+        df_final['tempo_permanencia'] = df_final['tpatend'] + df_final['tpesper']
+        
+        return {
+            'base': df_final,
+            'medias': dados['medias'],
+            'codigo': dados['codigo']
+        }
     except Exception as e:
         st.error(f"❌ Erro no processamento: {str(e)}")
         return None
