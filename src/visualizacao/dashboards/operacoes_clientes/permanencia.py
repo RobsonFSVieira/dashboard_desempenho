@@ -300,7 +300,7 @@ def mostrar_aba(dados, filtros):
                 - Espera: {formatar_tempo(media_espera)} min ({(media_espera/media_permanencia)*100:.1f}%)
                 - Atendimento: {formatar_tempo(media_atend)} min ({(media_atend/media_permanencia)*100:.1f}%)
                 """)
-            
+
             with col2:
                 st.subheader("⚠️ Análise de Meta")
                 acima_meta = tempos[tempos['tempo_permanencia'] > meta]
@@ -314,6 +314,69 @@ def mostrar_aba(dados, filtros):
                 - {len(dentro_meta)} ({perc_dentro:.1f}%) dentro da meta
                 - {len(acima_meta)} ({100-perc_dentro:.1f}%) acima da meta
                 """)
+            
+            # Mover o detalhamento para fora das colunas para ocupar toda largura
+            st.markdown("---")
+            st.markdown("### 📋 Detalhamento dos Registros Fora da Meta")
+            
+            # Filtrar registros acima da meta do DataFrame original
+            df_base = dados['base'].copy()
+            df_base['tempo_permanencia'] = df_base['tempo_permanencia'] / 60  # Converter para minutos
+            df_fora_meta = df_base[df_base['tempo_permanencia'] > meta].copy()
+            
+            if not df_fora_meta.empty:
+                # Formatar colunas de tempo
+                for col in ['retirada', 'inicio', 'fim']:
+                    if col in df_fora_meta.columns:
+                        df_fora_meta[col] = df_fora_meta[col].dt.strftime('%H:%M:%S')
+                
+                # Formatar tempos para minutos
+                df_fora_meta['tpatend'] = df_fora_meta['tpatend'] / 60
+                df_fora_meta['tpesper'] = df_fora_meta['tpesper'] / 60
+                
+                # Exibir tabela com configuração personalizada
+                st.dataframe(
+                    df_fora_meta[
+                        [
+                            'id', 'prefixo', 'numero', 'complemento', 'status',
+                            'retirada', 'inicio', 'fim', 'guichê', 'usuário',
+                            'tpesper', 'tpatend', 'tempo_permanencia'
+                        ]
+                    ],
+                    column_config={
+                        'id': st.column_config.NumberColumn('ID', width=70),
+                        'prefixo': st.column_config.TextColumn('Prefixo', width=80),
+                        'numero': st.column_config.NumberColumn('Número', width=80),
+                        'complemento': st.column_config.TextColumn('Complemento', width=100),
+                        'status': st.column_config.TextColumn('Status', width=100),
+                        'retirada': st.column_config.TextColumn('Retirada', width=100),
+                        'inicio': st.column_config.TextColumn('Início', width=100),
+                        'fim': st.column_config.TextColumn('Fim', width=100),
+                        'guichê': st.column_config.TextColumn('Guichê', width=80),
+                        'usuário': st.column_config.TextColumn('Usuário', width=120),
+                        'tpesper': st.column_config.NumberColumn(
+                            'T. Espera (min)',
+                            width=100,
+                            format="%.2f"
+                        ),
+                        'tpatend': st.column_config.NumberColumn(
+                            'T. Atend. (min)',
+                            width=100,
+                            format="%.2f"
+                        ),
+                        'tempo_permanencia': st.column_config.NumberColumn(
+                            'T. Total (min)',
+                            width=100,
+                            format="%.2f"
+                        )
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+                
+                st.markdown(f"Total de {len(df_fora_meta)} registros encontrados acima da meta.")
+            else:
+                st.info("Não foram encontrados registros acima da meta no período selecionado.")
             
             # Nova seção de alertas
             st.markdown("---")
