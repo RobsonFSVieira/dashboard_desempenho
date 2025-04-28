@@ -244,7 +244,9 @@ def mostrar_aba(dados, filtros):
             )
             
         with col2:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+            # Convert any NaN/float values to string and then get unique values
+            clientes = dados['base']['CLIENTE'].fillna('Não Informado').astype(str).unique().tolist()
+            clientes = ["Todos"] + sorted(clientes)
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
