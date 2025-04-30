@@ -32,28 +32,49 @@ def calcular_metricas_turno(dados, turno, filtros):
         'distribuicao_clientes': df_turno['CLIENTE'].value_counts().to_dict()
     }
 
-def mostrar_comparativo_turnos(dados, metricas_turnos):
-    """Mostra gráficos comparativos entre turnos"""
-    # Criar DataFrame para comparação
-    comp_data = pd.DataFrame.from_dict(metricas_turnos, orient='index')
-    
-    # Gráfico de barras para métricas principais
-    fig_metricas = go.Figure()
-    metricas = ['total_atendimentos', 'colaboradores', 'operacoes', 'clientes']
-    
-    for metrica in metricas:
-        fig_metricas.add_trace(go.Bar(
-            name=metrica.replace('_', ' ').title(),
-            x=list(metricas_turnos.keys()),
-            y=comp_data[metrica]
-        ))
-    
-    fig_metricas.update_layout(
-        title="Comparativo de Métricas por Turno",
-        barmode='group'
+def criar_tabela_ranking(dados, turno):
+    """Cria uma tabela estilizada com o ranking de colaboradores"""
+    df = dados['base']
+    df['turno'] = df['inicio'].dt.hour.map(
+        lambda x: 'TURNO A' if 6 <= x < 14 else ('TURNO B' if 14 <= x < 22 else 'TURNO C')
     )
     
-    st.plotly_chart(fig_metricas, use_container_width=True)
+    if turno != "Todos":
+        df = df[df['turno'] == turno]
+    
+    # Filtrar usuários, excluindo 'Ceparking'
+    usuarios = [user for user in df['usuário'].unique() if user != 'Ceparking']
+    
+    # Calcular métricas por colaborador
+    ranking = []
+    for usuario in usuarios:
+        df_user = df[df['usuário'] == usuario]
+        ops_count = len(df_user['OPERAÇÃO'].unique())
+        clientes_count = len(df_user['CLIENTE'].unique())
+        total_atend = len(df_user)
+        
+        # Calcular score normalizado
+        score = (ops_count / df_user['OPERAÇÃO'].nunique() * 0.4 +
+                clientes_count / df_user['CLIENTE'].nunique() * 0.4 +
+                total_atend / len(df) * 0.2)
+        
+        ranking.append({
+            'POS': '',  # Será preenchido após ordenação
+            'Colaborador': usuario,
+            'Score': score * 100  # Converter para percentual
+        })
+    
+    # Criar DataFrame e ordenar
+    ranking_df = pd.DataFrame(ranking)
+    ranking_df = ranking_df.sort_values('Score', ascending=False).reset_index(drop=True)
+    
+    # Adicionar posição com º
+    ranking_df['POS'] = ranking_df.index.map(lambda x: f"{x+1}º")
+    
+    # Formatar score com uma casa decimal
+    ranking_df['Score'] = ranking_df['Score'].map(lambda x: f"{x:.1f}")
+    
+    return ranking_df
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de análise de polivalência por turnos"""
@@ -73,18 +94,15 @@ def mostrar_aba(dados, filtros):
             turno_selecionado = st.selectbox(
                 "Selecionar Turno",
                 options=["Todos"] + sorted(metricas_turnos.keys()),
-                key="turno_selectbox_polivalencia_turnos"  # Added unique key
+                key="turno_selectbox_polivalencia_turnos"
             )
         
         with col2:
             cliente_filtro = st.selectbox(
                 "Selecionar Cliente",
                 options=["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist()),
-                key="cliente_selectbox_polivalencia_turnos"  # Added unique key
+                key="cliente_selectbox_polivalencia_turnos"
             )
-        
-        # Mostrar comparativo geral de turnos
-        mostrar_comparativo_turnos(dados, metricas_turnos)
         
         # Mostrar detalhes do turno selecionado se não for "Todos"
         if turno_selecionado != "Todos":
@@ -100,6 +118,30 @@ def mostrar_aba(dados, filtros):
                 st.metric("Colaboradores", metricas['colaboradores'])
             with col4:
                 st.metric("Operações", metricas['operacoes'])
+        
+        # Adicionar tabela de ranking
+        st.markdown("### 📊 Ranking de Polivalência")
+        ranking_df = criar_tabela_ranking(dados, turno_selecionado)
+        
+        # Estilizar e exibir a tabela
+        st.dataframe(
+            ranking_df,
+            column_config={
+                "POS": st.column_config.Column(
+                    "POS",
+                    width=70,
+                ),
+                "Colaborador": st.column_config.Column(
+                    "Colaborador",
+                    width=300,
+                ),
+                "Score": st.column_config.Column(
+                    "Score",
+                    width=100,
+                )
+            },
+            hide_index=True
+        )
     
     except Exception as e:
         st.error("Erro ao analisar dados de polivalência por turnos")
