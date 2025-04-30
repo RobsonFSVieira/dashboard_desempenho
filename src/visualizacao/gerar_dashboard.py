@@ -1,6 +1,6 @@
 import streamlit as st
 from visualizacao.dashboards.operacoes_clientes import geral, mov_cliente, mov_operacao, tempo_atend, espera, permanencia, turnos, comboio_i, comboio_ii, gates_hora
-from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend, qtd_atendimento, ociosidade
+from visualizacao.dashboards.desenvolvimento_pessoas import visao_geral, colaborador, tempo_atend as dp_tempo_atend, qtd_atendimento, ociosidade, polivalencia, polivalencia_turnos
 
 def criar_dashboard(dados, filtros, tipo_dashboard):
     """Cria o dashboard com base no tipo selecionado"""
@@ -73,9 +73,11 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             tabs = st.tabs([
                 "Visão Geral",
                 "Colaborador",
+                "Polivalência Individual",  # Renamed tab
+                "Polivalência por Turnos",  # New tab
                 "Tempo de Atendimento",
                 "Quantidade de Atendimento",
-                "Análise de Ociosidade"  # Nova aba adicionada
+                "Análise de Ociosidade"
             ])
             
             with tabs[0]:
@@ -92,17 +94,29 @@ def criar_dashboard(dados, filtros, tipo_dashboard):
             
             with tabs[2]:
                 try:
+                    polivalencia.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Polivalência Individual: {str(e)}")
+            
+            with tabs[3]:
+                try:
+                    polivalencia_turnos.mostrar_aba(dados, filtros)
+                except Exception as e:
+                    st.error(f"Erro na aba Polivalência por Turnos: {str(e)}")
+
+            with tabs[4]:
+                try:
                     dp_tempo_atend.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Tempo de Atendimento: {str(e)}")
 
-            with tabs[3]:
+            with tabs[5]:
                 try:
                     qtd_atendimento.mostrar_aba(dados, filtros)
                 except Exception as e:
                     st.error(f"Erro na aba Quantidade de Atendimento: {str(e)}")
 
-            with tabs[4]:  # Nova aba
+            with tabs[6]:
                 try:
                     ociosidade.mostrar_aba(dados, filtros)
                 except Exception as e:
