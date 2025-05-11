@@ -96,27 +96,30 @@ def calcular_nivel_polivalencia_operacoes(dados_colab):
     
     return scores
 
-def calcular_nivel_polivalencia_clientes(dados_colab):
+def calcular_nivel_polivalencia_clientes(dados_colab, dados_base):
     """Calcula o nível de polivalência por cliente considerando volume e tempo"""
+    # Obter lista completa de clientes da base de dados
+    todos_clientes = set(dados_base['base']['CLIENTE'].unique())
+    
     clientes = dados_colab['clientes']
     tempos_clientes = dados_colab['tempos_clientes']
     
     # Normalizar volumes (0 a 1)
-    vol_max = max(clientes.values())
-    volumes_norm = {cli: vol/vol_max for cli, vol in clientes.items()}
+    vol_max = max(clientes.values()) if clientes else 1
+    volumes_norm = {cli: clientes.get(cli, 0)/vol_max for cli in todos_clientes}
     
     # Normalizar tempos (inverso, pois menor tempo é melhor)
-    tempo_max = max(tempos_clientes.values())
-    tempos_norm = {cli: 1 - (tempo/tempo_max) for cli, tempo in tempos_clientes.items()}
+    tempo_max = max(tempos_clientes.values()) if tempos_clientes else 1
+    tempos_norm = {cli: 1 - (tempos_clientes.get(cli, tempo_max)/tempo_max) for cli in todos_clientes}
     
     # Calcular score final (70% tempo, 30% volume)
     scores = {}
-    for cli in clientes.keys():
+    for cli in todos_clientes:
         scores[cli] = (0.7 * tempos_norm[cli]) + (0.3 * volumes_norm[cli])
     
     return scores
 
-def mostrar_detalhes_colaborador(colaborador, metricas):
+def mostrar_detalhes_colaborador(colaborador, metricas, dados_base):
     """Mostra análise detalhada de um colaborador"""
     dados_colab = metricas[metricas['colaborador'] == colaborador].iloc[0]
     
@@ -138,12 +141,16 @@ def mostrar_detalhes_colaborador(colaborador, metricas):
     
     with col1:
         # Gráfico radar para clientes
-        scores_clientes = calcular_nivel_polivalencia_clientes(dados_colab)
+        scores_clientes = calcular_nivel_polivalencia_clientes(dados_colab, dados_base)
+        
+        # Ordenar clientes alfabeticamente e remover PRIORIDADE
+        clientes_ordenados = sorted([cli for cli in scores_clientes.keys() if cli != 'PRIORIDADE'])
+        valores_ordenados = [scores_clientes[cli] for cli in clientes_ordenados]
         
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(
-            r=list(scores_clientes.values()),
-            theta=list(scores_clientes.keys()),
+            r=valores_ordenados,
+            theta=clientes_ordenados,
             fill='toself',
             name='Nível de Polivalência'
         ))
@@ -189,9 +196,15 @@ def mostrar_detalhes_colaborador(colaborador, metricas):
             x=df_ops['Score'],
             y=df_ops['Operação'],
             orientation='h',
+            text=df_ops['Score'].map(lambda x: f"{x:.1f}"),
+            textposition='outside',  # Alterado para 'outside' para melhor visibilidade
+            textfont=dict(
+                color='#000000',  # Preto para melhor contraste
+                size=14  # Aumentado de 12 para 14
+            ),
             marker=dict(
                 color=df_ops['Score'],
-                colorscale=['#E3F2FD', '#90CAF9', '#42A5F5', '#1E88E5', '#1565C0'],  # Tons de azul
+                colorscale=['#E3F2FD', '#90CAF9', '#42A5F5', '#1E88E5', '#1565C0'],
                 showscale=True,
                 colorbar=dict(
                     title=dict(
@@ -250,7 +263,7 @@ def mostrar_aba(dados, filtros):
             return
 
         # Mostrar detalhes do colaborador selecionado
-        mostrar_detalhes_colaborador(colaborador_selecionado, ranking)
+        mostrar_detalhes_colaborador(colaborador_selecionado, ranking, dados)
 
     except Exception as e:
         st.error("Erro ao analisar dados de polivalência")
