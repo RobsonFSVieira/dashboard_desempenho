@@ -24,12 +24,6 @@ def validar_dados(df):
             df['inicio'] = pd.to_datetime(df['inicio'].astype(str), format='mixed', dayfirst=True)
             df['fim'] = pd.to_datetime(df['fim'].astype(str), format='mixed', dayfirst=True)
         
-        # Remover registros com datas futuras
-        hoje = pd.Timestamp.now()
-        df = df[df['retirada'] <= hoje]
-        df = df[df['inicio'] <= hoje]
-        df = df[df['fim'] <= hoje]
-        
         # Aplicando filtros conforme premissas
         df = df[
             (df['tpatend'] >= 60) &  # Mínimo 1 minuto
