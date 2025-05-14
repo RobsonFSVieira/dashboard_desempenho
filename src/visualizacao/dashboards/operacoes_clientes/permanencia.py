@@ -229,7 +229,11 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Permanência"""
-    st.header("Análise de Permanência")
+    # Formatar período para exibição
+    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
+              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    
+    st.header(f"Análise de Permanência ({periodo})")
     
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""

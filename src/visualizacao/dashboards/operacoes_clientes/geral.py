@@ -392,8 +392,12 @@ def gerar_insights_gerais(dados, filtros, metricas):
             ), unsafe_allow_html=True)
 
 def mostrar_aba(dados, filtros):
-    """Mostra a aba Geral do dashboard"""
-    st.header("Visão Geral das Operações")
+    """Mostra a aba Geral com visão consolidada e principais insights"""
+    # Formatar período para exibição
+    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
+              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    
+    st.header(f"Visão Geral das Operações ({periodo})")
     
     with st.expander("ℹ️ Como funciona?"):
         st.markdown("""

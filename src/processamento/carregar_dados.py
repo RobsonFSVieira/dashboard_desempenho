@@ -192,16 +192,6 @@ def processar_dados(dados):
             st.error("Base de dados vazia após validação")
             return None
             
-        # Verificar datas mais antiga e mais recente
-        data_min = df_base['retirada'].min().date()
-        data_max = df_base['retirada'].max().date()
-        
-        st.info(f"""
-        📅 Período disponível na base:
-        • De: {data_min.strftime('%d/%m/%Y')}
-        • Até: {data_max.strftime('%d/%m/%Y')}
-        """)
-        
         df_final = pd.merge(
             df_base,
             dados['codigo'][['prefixo', 'CLIENTE', 'OPERAÇÃO']],
