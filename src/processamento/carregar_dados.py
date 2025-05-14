@@ -6,36 +6,105 @@ from datetime import datetime
 import base64
 import os
 
-def validar_dados(df):
-    """Valida os dados conforme as premissas do projeto"""
+@st.cache_data(ttl=3600)  # Cache por 1 hora
+def carregar_dados_github():
+    """Carrega dados do repositório GitHub com cache"""
     try:
-        # Identificar formato da data baseado nos primeiros valores não-nulos
-        date_sample = df['retirada'].dropna().iloc[0]
+        # Configuração base da API do GitHub
+        repo_owner = "RobsonFSVieira"
+        repo_name = "dashboard_desempenho"
+        branch = "main"
         
-        # Converter datas usando formato adequado
-        try:
-            # Tentar primeiro como datetime
-            df['retirada'] = pd.to_datetime(df['retirada'], format='mixed', dayfirst=True)
-            df['inicio'] = pd.to_datetime(df['inicio'], format='mixed', dayfirst=True)
-            df['fim'] = pd.to_datetime(df['fim'], format='mixed', dayfirst=True)
-        except:
-            # Se falhar, tentar como string e converter
-            df['retirada'] = pd.to_datetime(df['retirada'].astype(str), format='mixed', dayfirst=True)
-            df['inicio'] = pd.to_datetime(df['inicio'].astype(str), format='mixed', dayfirst=True)
-            df['fim'] = pd.to_datetime(df['fim'].astype(str), format='mixed', dayfirst=True)
+        # URLs para download direto (usando a URL correta do GitHub)
+        files = {
+            'base': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/base.xlsx",
+            'codigo': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/codigo.xlsx",
+            'medias': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/medias_atend.xlsx"
+        }
         
-        # Aplicando filtros conforme premissas
-        df = df[
-            (df['tpatend'] >= 60) &  # Mínimo 1 minuto
-            (df['tpatend'] <= 1800) &  # Máximo 30 minutos
-            (df['tpesper'] <= 14400) &  # Máximo 4 horas de espera
-            (df['status'].isin(['ATENDIDO', 'TRANSFERIDA']))
-        ]
+        headers = {
+            'Accept': 'application/vnd.github.v3.raw',
+            'User-Agent': 'Python/requests'
+        }
         
-        return df
-    
+        dados = {}
+        
+        for key, url in files.items():
+            try:
+                response = requests.get(url, headers=headers, timeout=30)
+                if response.status_code == 200:
+                    content = BytesIO(response.content)
+                    if key == 'medias':
+                        dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
+                    else:
+                        dados[key] = pd.read_excel(content, engine='openpyxl')
+                else:
+                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
+                    return None
+                    
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
+                return None
+        
+        if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
+            st.success("✅ Dados carregados com sucesso do GitHub!")
+            return dados
+        return None
+        
     except Exception as e:
-        st.error(f"Erro na validação dos dados: {str(e)}")
+        st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
+        return None
+
+@st.cache_data(ttl=3600)
+def carregar_dados_drive():
+    """Carrega dados do Google Drive com cache"""
+    try:
+        # IDs dos arquivos no Google Drive
+        files = {
+            'base': '1YYaTE-zEi-TIL1quQ5VPsZqeZPQzGFNK',
+            'codigo': '18QcILseDPRrFMM-I81_ZephiAAJcD1Tf',
+            'medias': '17m7LLKLlwksbSyXlRBYKYniNPNL3f_ds'
+        }
+        
+        dados = {}
+        for key, file_id in files.items():
+            try:
+                url = f'https://drive.google.com/uc?id={file_id}&export=download'
+                response = requests.get(url)
+                content = BytesIO(response.content)
+                if key == 'medias':
+                    dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
+                else:
+                    dados[key] = pd.read_excel(content, engine='openpyxl')
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
+                return None
+        
+        if len(dados) == 3:
+            st.success("✅ Dados carregados com sucesso do Drive!")
+            return dados
+        return None
+    except Exception as e:
+        st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
+        return None
+
+@st.cache_data
+def validar_dados(df):
+    """Valida os dados com cache"""
+    try:
+        df['retirada'] = pd.to_datetime(df['retirada'], format='mixed', dayfirst=True)
+        df['inicio'] = pd.to_datetime(df['inicio'], format='mixed', dayfirst=True)
+        df['fim'] = pd.to_datetime(df['fim'], format='mixed', dayfirst=True)
+        
+        # Aplicar filtros em uma única operação
+        mask = (
+            (df['tpatend'].between(60, 1800)) & 
+            (df['tpesper'] <= 14400) &
+            (df['status'].isin(['ATENDIDO', 'TRANSFERIDA']))
+        )
+        return df[mask]
+    except Exception as e:
+        st.error(f"Erro na validação: {str(e)}")
         return None
 
 def validar_colunas(df):
@@ -96,86 +165,6 @@ def validar_colunas(df):
         raise ValueError("Estrutura do arquivo inválida")
     
     return df
-
-def carregar_dados_github():
-    """Carrega dados do repositório GitHub"""
-    try:
-        # Configuração base da API do GitHub
-        repo_owner = "RobsonFSVieira"
-        repo_name = "dashboard_desempenho"
-        branch = "main"
-        
-        # URLs para download direto (usando a URL correta do GitHub)
-        files = {
-            'base': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/base.xlsx",
-            'codigo': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/codigo.xlsx",
-            'medias': f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/dados/medias_atend.xlsx"
-        }
-        
-        headers = {
-            'Accept': 'application/vnd.github.v3.raw',
-            'User-Agent': 'Python/requests'
-        }
-        
-        dados = {}
-        
-        for key, url in files.items():
-            try:
-                response = requests.get(url, headers=headers, timeout=30)
-                if response.status_code == 200:
-                    content = BytesIO(response.content)
-                    if key == 'medias':
-                        dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
-                    else:
-                        dados[key] = pd.read_excel(content, engine='openpyxl')
-                else:
-                    st.warning(f"⚠️ Arquivo {key}.xlsx não encontrado no GitHub (Status: {response.status_code})")
-                    return None
-                    
-            except Exception as e:
-                st.warning(f"⚠️ Erro ao carregar {key}.xlsx: {str(e)}")
-                return None
-        
-        if len(dados) == 3:  # Verificar se todos os arquivos foram carregados
-            st.success("✅ Dados carregados com sucesso do GitHub!")
-            return dados
-        return None
-        
-    except Exception as e:
-        st.warning(f"⚠️ Erro ao acessar GitHub: {str(e)}")
-        return None
-
-def carregar_dados_drive():
-    """Carrega dados do Google Drive"""
-    try:
-        # IDs dos arquivos no Google Drive
-        files = {
-            'base': '1YYaTE-zEi-TIL1quQ5VPsZqeZPQzGFNK',
-            'codigo': '18QcILseDPRrFMM-I81_ZephiAAJcD1Tf',
-            'medias': '17m7LLKLlwksbSyXlRBYKYniNPNL3f_ds'
-        }
-        
-        dados = {}
-        for key, file_id in files.items():
-            try:
-                url = f'https://drive.google.com/uc?id={file_id}&export=download'
-                response = requests.get(url)
-                content = BytesIO(response.content)
-                if key == 'medias':
-                    dados[key] = pd.read_excel(content, sheet_name="DADOS", engine='openpyxl')
-                else:
-                    dados[key] = pd.read_excel(content, engine='openpyxl')
-            except Exception as e:
-                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
-                return None
-        
-        if len(dados) == 3:
-            st.success("✅ Dados carregados com sucesso do Drive!")
-            return dados
-        return None
-    except Exception as e:
-        st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
-        return None
 
 def processar_dados(dados):
     """Processa os dados carregados"""

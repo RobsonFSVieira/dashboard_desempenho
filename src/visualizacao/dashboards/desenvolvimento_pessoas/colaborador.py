@@ -335,7 +335,9 @@ def mostrar_aba(dados, filtros):
             )
             
         with col3:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+            # Handle NaN values and get unique clients
+            clientes_unicos = dados['base']['CLIENTE'].dropna().unique()
+            clientes = ["Todos"] + sorted([str(cliente) for cliente in clientes_unicos])
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
