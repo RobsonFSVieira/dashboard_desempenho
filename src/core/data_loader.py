@@ -6,62 +6,84 @@ import time
 from src.config import GITHUB_CONFIG, GITHUB_TOKEN
 
 class DataLoader:
+    """Classe responsável por carregar os dados"""
+    
     @staticmethod
-    @st.cache_data(ttl=3600)
-    def load_github():
-        """Carrega dados do GitHub"""
-        headers = {
-            'Accept': 'application/vnd.github.v3.raw',
-            'Authorization': f'Bearer {GITHUB_TOKEN}' if GITHUB_TOKEN else None,
-            'User-Agent': 'RobsonFSVieira-Dashboard'
-        }
-        
-        dados = {}
-        for key, path in {
-            'base': 'dados/base.xlsx',
-            'codigo': 'dados/codigo.xlsx',
-            'medias': 'dados/medias_atend.xlsx'
-        }.items():
-            for tentativa in range(GITHUB_CONFIG['retry_attempts']):
-                try:
-                    url = f"https://raw.githubusercontent.com/{GITHUB_CONFIG['owner']}/{GITHUB_CONFIG['repo']}/{GITHUB_CONFIG['branch']}/{path}"
-                    
-                    if st.session_state.debug:
-                        st.write(f"Tentativa {tentativa + 1} de carregar {key}")
-                    
-                    response = requests.get(
-                        url, 
-                        headers=headers, 
-                        timeout=GITHUB_CONFIG['timeout']
-                    )
-                    
-                    if response.status_code == 200:
-                        content = BytesIO(response.content)
-                        dados[key] = pd.read_excel(content)
-                        break
-                    elif response.status_code == 429:  # Rate limit
-                        st.warning(f"Limite de requisições atingido. Aguardando {GITHUB_CONFIG['retry_delay']} segundos...")
-                        time.sleep(GITHUB_CONFIG['retry_delay'])
-                    else:
-                        st.error(f"Erro ao carregar {key} (Status: {response.status_code})")
-                        if st.session_state.debug:
-                            st.write("Headers:", headers)
-                            st.write("Response:", response.text)
-                        return None
-                        
-                except Exception as e:
-                    st.error(f"Erro ao carregar {key}: {str(e)}")
-                    if tentativa == GITHUB_CONFIG['retry_attempts'] - 1:
-                        return None
-                    time.sleep(GITHUB_CONFIG['retry_delay'])
-        
-        if len(dados) == 3:
-            st.success("✅ Dados carregados com sucesso do GitHub!")
+    @st.cache_data(ttl=3600, persist="disk", show_spinner=False)  # Adicionado persist e removido spinner
+    def load_data(files=None):
+        """Carrega dados de diferentes fontes"""
+        # Tenta carregar do GitHub primeiro (sem validação de token)
+        dados = DataLoader.load_github()
+        if dados:
             return dados
+        
+        # Se falhar, tenta carregar do Drive
+        dados = DataLoader.load_drive()
+        if dados:
+            return dados
+            
+        # Por último, tenta carregar dos arquivos enviados
+        if files and all(files.values()):
+            return DataLoader.load_files(files)
+            
         return None
 
     @staticmethod
-    def load_manual(files):
+    def load_github():
+        """Carrega dados do GitHub"""
+        # Configurar headers com token se disponível
+        headers = {
+            'Accept': 'application/vnd.github.v3.raw',
+            'User-Agent': 'Python/requests'
+        }
+        
+        if GITHUB_TOKEN:
+            headers['Authorization'] = f'Bearer {GITHUB_TOKEN}'
+        
+        dados = {}
+        arquivos = {
+            'base': 'dados/base.xlsx',
+            'codigo': 'dados/codigo.xlsx', 
+            'medias': 'dados/medias_atend.xlsx'
+        }
+        
+        # Primeira tentativa - verificar se o token é válido
+        url = f"https://raw.githubusercontent.com/{GITHUB_CONFIG['owner']}/{GITHUB_CONFIG['repo']}/{GITHUB_CONFIG['branch']}/{list(arquivos.values())[0]}"
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 401:  # Token inválido
+                st.error("❌ Token GitHub inválido")
+                return None
+            elif response.status_code == 403:  # Rate limit
+                st.error("❌ Limite de requisições atingido")
+                return None
+        except:
+            return None
+
+        # Se chegou aqui, o token é válido - carregar todos os arquivos
+        for key, path in arquivos.items():
+            try:
+                url = f"https://raw.githubusercontent.com/{GITHUB_CONFIG['owner']}/{GITHUB_CONFIG['repo']}/{GITHUB_CONFIG['branch']}/{path}"
+                response = requests.get(url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    dados[key] = pd.read_excel(BytesIO(response.content))
+                else:
+                    st.warning(f"⚠️ Erro ao carregar {key}: Status {response.status_code}")
+                    return None
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao carregar {key}: {str(e)}")
+                return None
+
+        return dados if len(dados) == 3 else None
+
+    @staticmethod
+    def load_drive():
+        """Carrega dados do Drive"""
+        # Implementação futura
+        return None
+
+    @staticmethod
+    def load_files(files):
         """Processa arquivos enviados via upload"""
         if not all(files.values()):
             return None
@@ -157,16 +179,3 @@ class DataLoader:
             if st.session_state.debug:
                 st.exception(e)
             return None
-
-    @staticmethod
-    def load_data(manual_files=None):
-        """Interface principal de carregamento"""
-        dados = None
-        if manual_files and all(manual_files.values()):
-            dados = DataLoader.load_manual(manual_files)
-        else:
-            dados = DataLoader.load_github()
-            
-        if dados:
-            return DataLoader.process_data(dados)
-        return None

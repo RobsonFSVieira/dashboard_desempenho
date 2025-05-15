@@ -88,19 +88,19 @@ def carregar_dados_drive():
         st.warning(f"⚠️ Erro no carregamento do Drive: {str(e)}")
         return None
 
-@st.cache_data
+@st.cache_data(ttl=3600, persist="disk", show_spinner=False)
 def validar_dados(df):
-    """Valida os dados com cache"""
+    """Valida os dados com cache otimizado"""
     try:
-        df['retirada'] = pd.to_datetime(df['retirada'], format='mixed', dayfirst=True)
-        df['inicio'] = pd.to_datetime(df['inicio'], format='mixed', dayfirst=True)
-        df['fim'] = pd.to_datetime(df['fim'], format='mixed', dayfirst=True)
+        # Conversão de datas em uma única operação
+        date_columns = ['retirada', 'inicio', 'fim']
+        df[date_columns] = df[date_columns].apply(pd.to_datetime, format='mixed', dayfirst=True)
         
-        # Aplicar filtros em uma única operação
+        # Filtro otimizado
         mask = (
-            (df['tpatend'].between(60, 1800)) & 
+            df['tpatend'].between(60, 1800) & 
             (df['tpesper'] <= 14400) &
-            (df['status'].isin(['ATENDIDO', 'TRANSFERIDA']))
+            df['status'].isin(['ATENDIDO', 'TRANSFERIDA'])
         )
         return df[mask]
     except Exception as e:
