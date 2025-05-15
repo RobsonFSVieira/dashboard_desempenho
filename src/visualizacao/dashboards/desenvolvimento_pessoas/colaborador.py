@@ -5,42 +5,45 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import timedelta
 
-def analisar_colaborador(dados, filtros, colaborador, adicional_filters=None):
+def analisar_colaborador(dados, filtros_master, colaborador, filtros_local=None):
     """Analisa dados de um colaborador específico"""
-    df = dados['base']
+    # Primeiro aplicar filtros master
+    df = dados['base'].copy()
     
-    # Calcular médias gerais por operação (todos os usuários)
-    mask_periodo = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+    # Aplicar filtros master (período e filtros globais)
+    mask_master = (
+        (df['retirada'].dt.date >= filtros_master['periodo2']['inicio']) &
+        (df['retirada'].dt.date <= filtros_master['periodo2']['fim'])
     )
-    medias_gerais = df[mask_periodo].groupby('OPERAÇÃO').agg({
-        'tpatend': 'mean'
-    }).reset_index()
-    medias_gerais['tpatend'] = medias_gerais['tpatend'] / 60
     
-    # Aplicar filtros para o colaborador específico
-    mask = mask_periodo & (df['usuário'] == colaborador)
+    if 'cliente' in filtros_master and "Todos" not in filtros_master['cliente']:
+        mask_master &= df['CLIENTE'].isin(filtros_master['cliente'])
+        
+    if 'operacao' in filtros_master and "Todas" not in filtros_master['operacao']:
+        mask_master &= df['OPERAÇÃO'].isin(filtros_master['operacao'])
+
+    # Aplicar máscara master primeiro
+    df = df[mask_master].copy()
     
-    # Aplicar filtros adicionais
-    if adicional_filters:
-        if adicional_filters['turno'] != "Todos":
-            # Mapear hora para turno
+    # Depois aplicar filtro do colaborador selecionado
+    df = df[df['usuário'] == colaborador].copy()
+    
+    # Por último, aplicar filtros locais de refinamento
+    if filtros_local:
+        if filtros_local['turno'] != "Todos":
             df['turno'] = df['inicio'].dt.hour.map(
                 lambda x: 'TURNO A' if 6 <= x < 14 else ('TURNO B' if 14 <= x < 22 else 'TURNO C')
             )
-            mask &= (df['turno'] == adicional_filters['turno'])
+            df = df[df['turno'] == filtros_local['turno']]
         
-        if adicional_filters['cliente'] != "Todos":
-            mask &= (df['CLIENTE'] == adicional_filters['cliente'])
+        if filtros_local['cliente'] != "Todos":
+            df = df[df['CLIENTE'] == filtros_local['cliente']]
             
-        if adicional_filters['data_especifica']:
-            mask &= (df['retirada'].dt.date == adicional_filters['data_especifica'])
+        if filtros_local['data_especifica']:
+            df = df[df['retirada'].dt.date == filtros_local['data_especifica']]
     
-    df_filtrado = df[mask]
-    
-    # Métricas por operação
-    metricas_op = df_filtrado.groupby('OPERAÇÃO').agg({
+    # Calcular métricas usando dados já filtrados
+    metricas_op = df.groupby('OPERAÇÃO').agg({
         'id': 'count',
         'tpatend': 'mean',
         'tpesper': 'mean'
@@ -49,6 +52,12 @@ def analisar_colaborador(dados, filtros, colaborador, adicional_filters=None):
     # Converter tempos para minutos
     metricas_op['tpatend'] = metricas_op['tpatend'] / 60
     metricas_op['tpesper'] = metricas_op['tpesper'] / 60
+    
+    # Calcular médias gerais considerando filtros master
+    medias_gerais = dados['base'][mask_master].groupby('OPERAÇÃO').agg({
+        'tpatend': 'mean'
+    }).reset_index()
+    medias_gerais['tpatend'] = medias_gerais['tpatend'] / 60
     
     # Adicionar médias gerais como referência
     metricas_op = pd.merge(
@@ -156,13 +165,13 @@ def criar_grafico_operacoes(metricas_op):
     
     return fig
 
-def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
+def criar_grafico_evolucao_diaria(dados, filtros_master, colaborador):
     """Cria gráfico de evolução diária"""
     df = dados['base']
-    # Aplicar filtros de data
+    # Aplicar filtros master
     mask = (
-        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+        (df['retirada'].dt.date >= filtros_master['periodo2']['inicio']) &
+        (df['retirada'].dt.date <= filtros_master['periodo2']['fim'])
     )
     
     # Calcular média geral do período para comparação
@@ -182,8 +191,8 @@ def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
     evolucao['variacao'] = ((evolucao['tpatend'] - meta_geral) / meta_geral * 100)
 
     # Formatar período para exibição
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    periodo = (f"{filtros_master['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
+              f"{filtros_master['periodo2']['fim'].strftime('%d/%m/%Y')}")
 
     fig = make_subplots(
         rows=1, cols=3,  # Aumentado para 3 colunas
@@ -257,11 +266,11 @@ def criar_grafico_evolucao_diaria(dados, filtros, colaborador):
     
     return fig
 
-def mostrar_aba(dados, filtros):
+def mostrar_aba(dados, filtros_master):
     """Mostra a aba de análise individual do colaborador"""
     # Formatar período para exibição
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    periodo = (f"{filtros_master['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
+              f"{filtros_master['periodo2']['fim'].strftime('%d/%m/%Y')}")
     
     st.header(f"Análise Individual do Colaborador ({periodo})")
 
@@ -298,57 +307,61 @@ def mostrar_aba(dados, filtros):
         """)
     
     try:
-        # Debug de períodos
-        df = dados['base']
-        data_min = df['retirada'].dt.date.min()
-        data_max = df['retirada'].dt.date.max()
+        # Aplicar filtros master para obter lista de clientes disponíveis
+        df_filtrado = dados['base'].copy()
+        mask_master = (
+            (df_filtrado['retirada'].dt.date >= filtros_master['periodo2']['inicio']) &
+            (df_filtrado['retirada'].dt.date <= filtros_master['periodo2']['fim'])
+        )
         
-        # Verificar se o período selecionado está contido nos dados
-        if (filtros['periodo2']['inicio'] < data_min or 
-            filtros['periodo2']['fim'] > data_max):
+        # Lista de clientes deve respeitar filtro master
+        clientes_disponiveis = []
+        if 'cliente' in filtros_master and "Todos" not in filtros_master['cliente']:
+            clientes_disponiveis = filtros_master['cliente']
+            mask_master &= df_filtrado['CLIENTE'].isin(clientes_disponiveis)
+        else:
+            # Se não houver filtro master, usar todos os clientes disponíveis no período
+            clientes_disponiveis = sorted(df_filtrado[mask_master]['CLIENTE'].dropna().unique())
             
-            st.warning(
-                f"⚠️ Período selecionado ({filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} "
-                f"a {filtros['periodo2']['fim'].strftime('%d/%m/%Y')}) está fora do intervalo "
-                f"disponível na base de dados ({data_min.strftime('%d/%m/%Y')} a "
-                f"{data_max.strftime('%d/%m/%Y')})"
-            )
-            return
+        if 'operacao' in filtros_master and "Todas" not in filtros_master['operacao']:
+            mask_master &= df_filtrado['OPERAÇÃO'].isin(filtros_master['operacao'])
         
-        # Linha de seletores
+        df_filtrado = df_filtrado[mask_master]
+        
+        # Linha de seletores para filtros locais
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            colaboradores = sorted(dados['base']['usuário'].unique())
+            colaboradores = sorted(df_filtrado['usuário'].unique())
             colaborador = st.selectbox(
                 "Selecione o Colaborador",
                 options=colaboradores,
                 help="Escolha um colaborador para análise detalhada"
             )
         
+        # Filtros locais
+        filtros_local = {}
         with col2:
-            turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
-            turno = st.selectbox(
-                "Selecione o Turno",
-                options=turnos,
+            filtros_local['turno'] = st.selectbox(
+                "Filtrar por Turno",
+                options=["Todos", "TURNO A", "TURNO B", "TURNO C"],
                 help="Filtre por turno específico"
             )
             
         with col3:
-            # Handle NaN values and get unique clients
-            clientes_unicos = dados['base']['CLIENTE'].dropna().unique()
-            clientes = ["Todos"] + sorted([str(cliente) for cliente in clientes_unicos])
-            cliente = st.selectbox(
-                "Selecione o Cliente",
+            # Usar apenas clientes que passaram pelo filtro master
+            clientes = ["Todos"] + sorted(clientes_disponiveis)
+            filtros_local['cliente'] = st.selectbox(
+                "Filtrar por Cliente",
                 options=clientes,
                 help="Filtre por cliente específico"
             )
 
         with col4:
-            # Obter lista de datas disponíveis no período
+            # Datas disponíveis considerando filtros master
             mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
+                (dados['base']['retirada'].dt.date >= filtros_master['periodo2']['inicio']) &
+                (dados['base']['retirada'].dt.date <= filtros_master['periodo2']['fim'])
             )
             datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
             datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
@@ -360,19 +373,14 @@ def mostrar_aba(dados, filtros):
             )
             
             # Conversão da data selecionada
-            data_especifica = None
+            filtros_local['data_especifica'] = None
             if data_selecionada != "Todas":
                 dia, mes, ano = map(int, data_selecionada.split('/'))
-                data_especifica = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
+                filtros_local['data_especifica'] = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
 
         if colaborador:
-            # Análise do colaborador com filtros adicionais
-            adicional_filters = {
-                'turno': turno,
-                'cliente': cliente,
-                'data_especifica': data_especifica
-            }
-            metricas_op = analisar_colaborador(dados, filtros, colaborador, adicional_filters)
+            # Análise do colaborador com hierarquia de filtros
+            metricas_op = analisar_colaborador(dados, filtros_master, colaborador, filtros_local)
             
             # Métricas principais
             col1, col2, col3, col4 = st.columns(4)
@@ -411,7 +419,7 @@ def mostrar_aba(dados, filtros):
             
             # Gráficos
             st.plotly_chart(criar_grafico_operacoes(metricas_op), use_container_width=True)
-            st.plotly_chart(criar_grafico_evolucao_diaria(dados, filtros, colaborador), use_container_width=True)
+            st.plotly_chart(criar_grafico_evolucao_diaria(dados, filtros_master, colaborador), use_container_width=True)
             
             # Análise Detalhada
             st.subheader("📊 Análise Detalhada")

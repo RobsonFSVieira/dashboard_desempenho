@@ -24,6 +24,122 @@ def obter_datas_disponiveis(df):
         hoje = datetime.now().date()
         return hoje - timedelta(days=60), hoje
 
+def criar_filtros_master():
+    """Cria filtros master que afetam todo o dashboard"""
+    st.sidebar.title("📊 Filtros Principais")
+    
+    # Período de análise
+    with st.sidebar.expander("📅 Período de Análise", expanded=True):
+        # Data final (atual)
+        data_fim = datetime.now().date()
+        data_inicio = data_fim - timedelta(days=30)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            inicio_p1 = st.date_input("Início P1", value=data_inicio)
+            fim_p1 = st.date_input("Fim P1", value=data_fim)
+        
+        with col2:
+            inicio_p2 = st.date_input("Início P2", value=data_inicio)
+            fim_p2 = st.date_input("Fim P2", value=data_fim)
+
+    # Filtros globais
+    with st.sidebar.expander("🌐 Filtros Globais", expanded=True):
+        df = st.session_state.dados['base']
+        
+        clientes = ["Todos"] + sorted(df['CLIENTE'].dropna().unique().tolist())
+        cliente = st.multiselect("Cliente", options=clientes, default=["Todos"])
+        
+        operacoes = ["Todas"] + sorted(df['OPERAÇÃO'].dropna().unique().tolist())
+        operacao = st.multiselect("Operação", options=operacoes, default=["Todas"])
+        
+        turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
+        turno = st.multiselect("Turno", options=turnos, default=["Todos"])
+    
+    return {
+        'periodo1': {'inicio': inicio_p1, 'fim': fim_p1},
+        'periodo2': {'inicio': inicio_p2, 'fim': fim_p2},
+        'cliente': cliente,
+        'operacao': operacao,
+        'turno': turno
+    }
+
+def criar_filtros_pagina(nome_pagina, dados):
+    """Cria filtros específicos para cada página"""
+    filtros_pagina = {}
+    
+    with st.expander("🔍 Filtros da Página", expanded=False):
+        if nome_pagina == "polivalencia":
+            col1, col2 = st.columns(2)
+            with col1:
+                filtros_pagina['colaborador'] = st.selectbox(
+                    "Colaborador",
+                    options=["Todos"] + sorted(dados['base']['usuário'].unique().tolist())
+                )
+            with col2:
+                filtros_pagina['nivel_exp'] = st.selectbox(
+                    "Nível de Experiência",
+                    options=["Todos", "Junior", "Pleno", "Sênior"]
+                )
+            filtros_pagina['min_atendimentos'] = st.number_input(
+                "Mínimo de Atendimentos",
+                min_value=0,
+                value=0,
+                help="Número mínimo de atendimentos realizados pelo colaborador"
+            )
+                
+        elif nome_pagina == "tempo_atendimento":
+            filtros_pagina['faixa_tempo'] = st.slider(
+                "Faixa de Tempo (min)",
+                min_value=1,
+                max_value=60,
+                value=(5, 30)
+            )
+            
+        # Adicionar outros casos específicos aqui
+    
+    return filtros_pagina
+
+def aplicar_filtros(df, filtros_master, filtros_pagina=None):
+    """Aplica filtros master e da página aos dados"""
+    mask = pd.Series(True, index=df.index)
+    
+    # Aplicar filtros master primeiro
+    if "Todos" not in filtros_master['cliente']:
+        mask &= df['CLIENTE'].isin(filtros_master['cliente'])
+    
+    if "Todas" not in filtros_master['operacao']:
+        mask &= df['OPERAÇÃO'].isin(filtros_master['operacao'])
+    
+    if "Todos" not in filtros_master['turno']:
+        mask &= df['turno'].isin(filtros_master['turno'])
+    
+    # Aplicar filtros da página se existirem
+    if filtros_pagina:
+        if 'colaborador' in filtros_pagina and filtros_pagina['colaborador'] != "Todos":
+            mask &= df['usuário'] == filtros_pagina['colaborador']
+            
+        if 'faixa_tempo' in filtros_pagina:
+            min_tempo, max_tempo = filtros_pagina['faixa_tempo']
+            mask &= df['tpatend'].between(min_tempo * 60, max_tempo * 60)
+        
+        if 'nivel_exp' in filtros_pagina and filtros_pagina['nivel_exp'] != "Todos":
+            # Lógica para filtrar por nível de experiência
+            if filtros_pagina['nivel_exp'] == "Junior":
+                mask &= df['tempo_cargo'] <= 180  # 6 meses
+            elif filtros_pagina['nivel_exp'] == "Pleno":
+                mask &= (df['tempo_cargo'] > 180) & (df['tempo_cargo'] <= 365)
+            elif filtros_pagina['nivel_exp'] == "Sênior":
+                mask &= df['tempo_cargo'] > 365
+        
+        if 'min_atendimentos' in filtros_pagina:
+            # Agrupar por usuário para contar atendimentos
+            atend_por_usuario = df.groupby('usuário').size()
+            usuarios_validos = atend_por_usuario[atend_por_usuario >= filtros_pagina['min_atendimentos']].index
+            mask &= df['usuário'].isin(usuarios_validos)
+    
+    return df[mask]
+
 def criar_filtros():
     """Cria e gerencia os filtros na sidebar"""
     st.sidebar.header("Filtros de Análise")

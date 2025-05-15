@@ -3,10 +3,22 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import unicodedata
+
+def normalizar_nome(nome):
+    """Normaliza o nome do usuário para evitar duplicações"""
+    # Remove acentos e converte para maiúsculo
+    nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('ASCII').upper()
+    # Remove espaços extras
+    nome = ' '.join(nome.split())
+    return nome
 
 def calcular_performance(dados, filtros):
     """Calcula métricas de performance por colaborador"""
-    df = dados['base']
+    df = dados['base'].copy()
+    
+    # Normalizar nomes dos usuários
+    df['usuário_norm'] = df['usuário'].apply(normalizar_nome)
     
     # Aplicar filtros de data
     mask = (
@@ -25,15 +37,19 @@ def calcular_performance(dados, filtros):
     
     df_filtrado = df[mask]
     
-    # Calcular métricas por colaborador
-    metricas = df_filtrado.groupby('usuário').agg({
+    # Calcular métricas por colaborador (agora usando nome normalizado)
+    metricas = df_filtrado.groupby('usuário_norm').agg({
         'id': 'count',
         'tpatend': ['mean', 'std'],
-        'tpesper': 'mean'
+        'tpesper': 'mean',
+        'usuário': 'first'  # Mantém o nome original para exibição
     }).reset_index()
     
     # Renomear colunas
-    metricas.columns = ['colaborador', 'qtd_atendimentos', 'tempo_medio', 'desvio_padrao', 'tempo_espera']
+    metricas.columns = ['usuario_norm', 'qtd_atendimentos', 'tempo_medio', 'desvio_padrao', 'tempo_espera', 'colaborador']
+    
+    # Filtrar apenas colaboradores com mais de 15 atendimentos
+    metricas = metricas[metricas['qtd_atendimentos'] >= 15]
     
     # Converter para minutos
     metricas['tempo_medio'] = metricas['tempo_medio'] / 60
@@ -189,15 +205,15 @@ def criar_grafico_ociosidade(metricas):
     
     return fig
 
-def mostrar_aba(dados, filtros):
+def mostrar_aba(dados, filtros_master):
     """Mostra a aba de Visão Geral"""
     # Formatar período para exibição
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
+    periodo = (f"{filtros_master['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
+              f"{filtros_master['periodo2']['fim'].strftime('%d/%m/%Y')}")
     
     st.header(f"Visão Geral de Performance ({periodo})")
     
-    # Adicionar seção explicativa
+    # Seção explicativa
     with st.expander("ℹ️ Como funciona?", expanded=False):
         st.markdown("""
         ### Cálculo de Performance
@@ -230,76 +246,77 @@ def mostrar_aba(dados, filtros):
         - **Pontos de Atenção**: Colaboradores abaixo da média
         - **Insights Gerais**: Estatísticas gerais da equipe
         """)
-    
+
     try:
-        # Adicionar filtros adicionais
+        # Aplicar filtros master primeiro
+        df = dados['base'].copy()
+        mask_master = (
+            (df['retirada'].dt.date >= filtros_master['periodo2']['inicio']) &
+            (df['retirada'].dt.date <= filtros_master['periodo2']['fim'])
+        )
+        
+        # Filtrar clientes baseado no filtro master
+        if 'cliente' in filtros_master and "Todos" not in filtros_master['cliente']:
+            mask_master &= df['CLIENTE'].isin(filtros_master['cliente'])
+            # Lista de clientes disponíveis após filtro master
+            clientes_permitidos = sorted(filtros_master['cliente'])
+        else:
+            # Se não houver filtro master, usar todos os clientes
+            clientes_permitidos = sorted(df[mask_master]['CLIENTE'].fillna('Não Informado').astype(str).unique().tolist())
+            
+        if 'operacao' in filtros_master and "Todas" not in filtros_master['operacao']:
+            mask_master &= df['OPERAÇÃO'].isin(filtros_master['operacao'])
+        
+        df = df[mask_master]
+        
+        # Filtros locais
         col1, col2, col3 = st.columns(3)
         
         with col1:
             turnos = ["Todos", "TURNO A", "TURNO B", "TURNO C"]
-            turno = st.selectbox(
-                "Selecione o Turno",
+            turno_local = st.selectbox(
+                "Filtrar por Turno",
                 options=turnos,
-                key="visao_geral_turno"
+                key="visao_geral_turno_local"
             )
             
         with col2:
-            # Convert any NaN/float values to string and then get unique values
-            clientes = dados['base']['CLIENTE'].fillna('Não Informado').astype(str).unique().tolist()
-            clientes = ["Todos"] + sorted(clientes)
-            cliente = st.selectbox(
-                "Selecione o Cliente",
+            # Usar apenas clientes permitidos pelo filtro master
+            clientes = ["Todos"] + clientes_permitidos
+            cliente_local = st.selectbox(
+                "Filtrar por Cliente",
                 options=clientes,
-                key="visao_geral_cliente"
+                key="visao_geral_cliente_local"
+            )
+        
+        with col3:
+            datas_disponiveis = sorted(dados['base']['retirada'].dt.date.unique())
+            datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
+            data_local = st.selectbox(
+                "Filtrar por Data",
+                options=datas_opcoes,
+                key="visao_geral_data_local"
             )
 
-        with col3:
-            # Obter lista de datas disponíveis no período
-            mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
-            )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
-            datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
-            
-            data_selecionada = st.selectbox(
-                "Selecione a Data",
-                options=datas_opcoes,
-                key="visao_geral_data"
-            )
-        
-        # Processar data
-        data_especifica = None
-        if data_selecionada != "Todas":
-            dia, mes, ano = map(int, data_selecionada.split('/'))
-            data_especifica = pd.to_datetime(f"{ano}-{mes}-{dia}").date()
-        
-        # Filtros adicionais
-        adicional_filters = {
-            'turno': turno,
-            'cliente': cliente,
-            'data_especifica': data_especifica
-        }
-        
-        # Aplicar filtros à base de dados
-        df = dados['base'].copy()
-        if turno != "Todos":
+        # Aplicar filtros locais
+        if turno_local != "Todos":
             df['turno'] = df['inicio'].dt.hour.map(
-                lambda x: 'A' if 6 <= x < 14 else ('B' if 14 <= x < 22 else 'C')
+                lambda x: 'TURNO A' if 6 <= x < 14 else ('TURNO B' if 14 <= x < 22 else 'TURNO C')
             )
-            df = df[df['turno'].map({'A': 'TURNO A', 'B': 'TURNO B', 'C': 'TURNO C'}) == turno]
+            df = df[df['turno'] == turno_local]
             
-        if cliente != "Todos":
-            df = df[df['CLIENTE'] == cliente]
+        if cliente_local != "Todos":
+            df = df[df['CLIENTE'] == cliente_local]
             
-        if data_especifica:
+        if data_local != "Todas":
+            data_especifica = pd.to_datetime(data_local, format="%d/%m/%Y").date()
             df = df[df['retirada'].dt.date == data_especifica]
         
-        # Atualizar dados com filtros aplicados
+        # Atualizar dados filtrados
         dados_filtrados = {'base': df}
         
         # Calcular métricas com dados filtrados
-        metricas = calcular_performance(dados_filtrados, filtros)
+        metricas = calcular_performance(dados_filtrados, filtros_master)
         
         # Mostrar métricas gerais
         col1, col2, col3 = st.columns(3)
@@ -312,11 +329,11 @@ def mostrar_aba(dados, filtros):
             )
         
         with col2:
-            media_atend = metricas['qtd_atendimentos'].mean()
+            total_atend = metricas['qtd_atendimentos'].sum()
             st.metric(
-                "Média de Atendimentos",
-                f"{int(media_atend)} atendimentos",
-                help="Média de atendimentos por colaborador"
+                "Total de Atendimentos",
+                f"{total_atend:,.0f} atendimentos".replace(",", "."),  # Formato brasileiro
+                help="Total de atendimentos no período"
             )
         
         with col3:
@@ -346,75 +363,8 @@ def mostrar_aba(dados, filtros):
         with col:
             fig_ocio = criar_grafico_ociosidade(metricas)
             st.plotly_chart(fig_ocio, use_container_width=True)
-
-        # Análise Detalhada
-        st.subheader("📊 Análise Detalhada")
-        with st.expander("Ver análise", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.write("#### 🏆 Ranking dos 5 Melhores")
-                st.write("*Score considera: 40% volume + 30% tempo médio + 30% ociosidade*")
-                
-                # Normalizar as métricas para criar um ranking composto
-                df_rank = pd.DataFrame()
-                df_rank['colaborador'] = metricas['colaborador']
-                
-                # Normalizar volume (maior é melhor)
-                df_rank['rank_volume'] = metricas['qtd_atendimentos'] / metricas['qtd_atendimentos'].max()
-                
-                # Normalizar tempo médio (menor é melhor)
-                df_rank['rank_tempo'] = metricas['tempo_medio'].min() / metricas['tempo_medio']
-                
-                # Normalizar ociosidade (menor é melhor)
-                df_rank['rank_ocio'] = (metricas['tempo_espera'].min() + metricas['tempo_medio'].min()) / (metricas['tempo_espera'] + metricas['tempo_medio'])
-                
-                # Calcular score final (média ponderada)
-                df_rank['score_final'] = (
-                    df_rank['rank_volume'] * 0.4 +  # 40% peso volume
-                    df_rank['rank_tempo'] * 0.3 +   # 30% peso tempo
-                    df_rank['rank_ocio'] * 0.3      # 30% peso ociosidade
-                ) * 100
-                
-                # Pegar top 5
-                top_5 = df_rank.nlargest(5, 'score_final').reset_index(drop=True)  # Reset do índice
-                
-                # Mostrar ranking
-                for idx, row in top_5.iterrows():
-                    colaborador = metricas[metricas['colaborador'] == row['colaborador']].iloc[0]
-                    posicao = ["🥇 1º", "🥈 2º", "🥉 3º", "4º", "5º"][idx]  # Medalhas para os 3 primeiros
-                    st.markdown(f"""
-                    **{posicao} Lugar - {row['colaborador']}**
-                    - 🎯 Score: {row['score_final']:.1f}
-                    - 📊 Volume: {colaborador['qtd_atendimentos']} atendimentos
-                    - ⏱️ Tempo Médio: {colaborador['tempo_medio']:.1f} min
-                    - ⌛ Ociosidade: {(colaborador['tempo_espera'] + colaborador['tempo_medio'])/2:.1f} min
-                    ---
-                    """)
-                
-            with col2:
-                st.write("#### ⚠️ Pontos de Atenção")
-                baixa_perf = metricas[metricas['score'] < metricas['score'].mean()]
-                if not baixa_perf.empty:
-                    for _, row in baixa_perf.head(3).iterrows():
-                        st.write(
-                            f"**{row['colaborador']}**\n\n"
-                            f"- Score: {row['score']:.1f}\n"
-                            f"- Atendimentos: {row['qtd_atendimentos']}\n"
-                            f"- Tempo Médio: {row['tempo_medio']:.1f} min"
-                        )
-            
-            with col3:
-                st.write("#### 📈 Insights Gerais")
-                st.write(
-                    f"- Média geral de score: {metricas['score'].mean():.1f}\n"
-                    f"- Desvio padrão do score: {metricas['score'].std():.1f}\n"
-                    f"- {len(metricas[metricas['score'] > metricas['score'].mean()])} "
-                    f"colaboradores acima da média\n"
-                    f"- {len(metricas[metricas['score'] < metricas['score'].mean()])} "
-                    f"colaboradores abaixo da média"
-                )
             
     except Exception as e:
         st.error("Erro ao gerar a visão geral")
-        st.exception(e)
+        if st.session_state.debug:
+            st.exception(e)

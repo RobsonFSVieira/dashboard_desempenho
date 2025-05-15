@@ -4,13 +4,20 @@ from processamento.carregar_dados import carregar_dados
 from visualizacao.filtros import criar_filtros
 from visualizacao.gerar_dashboard import criar_dashboard
 
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="Dashboard de Atendimento",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Inicialização do estado da sessão
+if 'debug' not in st.session_state:
+    st.session_state['debug'] = True
+
 def main():
     """Função principal do dashboard"""
-    st.set_page_config(
-        page_title="Dashboard de Atendimento",
-        page_icon="📊",
-        layout="wide"
-    )
     
     # Remover espaços extras mantendo título visível
     st.write(

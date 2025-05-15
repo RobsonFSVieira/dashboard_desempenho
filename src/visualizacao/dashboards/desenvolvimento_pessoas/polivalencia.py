@@ -98,11 +98,12 @@ def calcular_nivel_polivalencia_operacoes(dados_colab):
 
 def calcular_nivel_polivalencia_clientes(dados_colab, dados_base):
     """Calcula o nível de polivalência por cliente considerando volume e tempo"""
-    # Obter lista completa de clientes da base de dados
-    todos_clientes = set(dados_base['base']['CLIENTE'].unique())
+    # Obter lista completa de clientes da base de dados e converter para strings
+    todos_clientes = {str(cliente) for cliente in dados_base['base']['CLIENTE'].dropna().unique()}
     
-    clientes = dados_colab['clientes']
-    tempos_clientes = dados_colab['tempos_clientes']
+    # Converter chaves dos dicionários para strings
+    clientes = {str(k): v for k, v in dados_colab['clientes'].items()}
+    tempos_clientes = {str(k): v for k, v in dados_colab['tempos_clientes'].items()}
     
     # Normalizar volumes (0 a 1)
     vol_max = max(clientes.values()) if clientes else 1
@@ -143,8 +144,8 @@ def mostrar_detalhes_colaborador(colaborador, metricas, dados_base):
         # Gráfico radar para clientes
         scores_clientes = calcular_nivel_polivalencia_clientes(dados_colab, dados_base)
         
-        # Ordenar clientes alfabeticamente e remover PRIORIDADE
-        clientes_ordenados = sorted([cli for cli in scores_clientes.keys() if cli != 'PRIORIDADE'])
+        # Ordenar clientes alfabeticamente e remover PRIORIDADE (agora como string)
+        clientes_ordenados = sorted([cli for cli in scores_clientes.keys() if str(cli) != 'PRIORIDADE'])
         valores_ordenados = [scores_clientes[cli] for cli in clientes_ordenados]
         
         fig_radar = go.Figure()
@@ -253,9 +254,12 @@ def mostrar_aba(dados, filtros):
             )
             
         with col3:
+            # Handle NaN values and convert to strings
+            clientes_unicos = dados['base']['CLIENTE'].dropna().unique()
+            clientes = ["Todos"] + sorted([str(cliente) for cliente in clientes_unicos])
             cliente_filtro = st.selectbox(
                 "Selecionar Cliente",
-                options=["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+                options=clientes
             )
 
         if not colaborador_selecionado:
