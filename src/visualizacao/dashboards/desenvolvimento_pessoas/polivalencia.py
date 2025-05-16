@@ -238,7 +238,7 @@ def mostrar_aba(dados, filtros):
         metricas = calcular_polivalencia(dados, filtros)
         ranking = calcular_ranking_polivalencia(metricas)
         
-        # Filtros e seleção na ordem correta
+  # Filtros e seleção na ordem correta
         col1, col2, col3 = st.columns(3)
         
         with col1:

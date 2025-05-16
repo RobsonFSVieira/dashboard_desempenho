@@ -362,28 +362,30 @@ def mostrar_aba(dados, filtros):
         """)
 
     try:
-        # Debug de períodos
-        df = dados['base']
-        data_min = df['retirada'].dt.date.min()
-        data_max = df['retirada'].dt.date.max()
+        # Aplicar filtros master primeiro
+        df = dados['base'].copy()
+        mask_master = (
+            (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+            (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+        )
         
-        # Verificar se o período selecionado está contido nos dados
-        if (filtros['periodo2']['inicio'] < data_min or 
-            filtros['periodo2']['fim'] > data_max):
+        # Filtrar clientes baseado no filtro master
+        if 'cliente' in filtros and "Todos" not in filtros['cliente']:
+            mask_master &= df['CLIENTE'].isin(filtros['cliente'])
+            clientes_permitidos = sorted(filtros['cliente'])
+        else:
+            clientes_permitidos = sorted(df[mask_master]['CLIENTE'].dropna().unique())
             
-            st.warning(
-                f"⚠️ Período selecionado ({filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} "
-                f"a {filtros['periodo2']['fim'].strftime('%d/%m/%Y')}) está fora do intervalo "
-                f"disponível na base de dados ({data_min.strftime('%d/%m/%Y')} a "
-                f"{data_max.strftime('%d/%m/%Y')})"
-            )
-            return
+        if 'operacao' in filtros and "Todas" not in filtros['operacao']:
+            mask_master &= df['OPERAÇÃO'].isin(filtros['operacao'])
+        
+        df_filtrado = df[mask_master]
         
         # Linha de seletores
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            colaboradores = sorted(dados['base']['usuário'].unique())
+            colaboradores = sorted(df_filtrado['usuário'].unique())
             colaborador = st.selectbox(
                 "Selecione o Colaborador",
                 options=["Todos"] + colaboradores,
@@ -401,7 +403,8 @@ def mostrar_aba(dados, filtros):
             )
             
         with col3:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+            # Usar apenas clientes permitidos pelo filtro master
+            clientes = ["Todos"] + [str(cliente) for cliente in clientes_permitidos]
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
@@ -412,10 +415,10 @@ def mostrar_aba(dados, filtros):
         with col4:
             # Obter lista de datas disponíveis no período
             mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
+                (df_filtrado['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+                (df_filtrado['retirada'].dt.date <= filtros['periodo2']['fim'])
             )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
+            datas_disponiveis = sorted(df_filtrado[mask_periodo]['retirada'].dt.date.unique())
             datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
             
             data_selecionada = st.selectbox(

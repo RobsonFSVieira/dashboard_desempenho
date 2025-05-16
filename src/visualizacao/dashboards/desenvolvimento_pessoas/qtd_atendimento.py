@@ -305,7 +305,30 @@ def gerar_insights_atendimentos(atend_p1, atend_p2):
 
 def mostrar_aba(dados, filtros):
     """Mostra a aba de Quantidade de Atendimento"""
-    # Formatar períodos para exibição
+    # Aplicar filtros master primeiro
+    df = dados['base'].copy()
+    mask_master = (
+        (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+        (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+    )
+    
+    # Filtrar clientes baseado no filtro master
+    if 'cliente' in filtros and "Todos" not in filtros['cliente']:
+        mask_master &= df['CLIENTE'].isin(filtros['cliente'])
+        clientes_permitidos = sorted(filtros['cliente'])
+    else:
+        clientes_permitidos = sorted(df[mask_master]['CLIENTE'].dropna().unique())
+        
+    if 'operacao' in filtros and "Todas" not in filtros['operacao']:
+        mask_master &= df['OPERAÇÃO'].isin(filtros['operacao'])
+    
+    df_filtrado = df[mask_master]
+    dados_filtrados = {'base': df_filtrado}
+    
+    # Debug de períodos usando dados filtrados
+    data_min = df_filtrado['retirada'].dt.date.min()
+    data_max = df_filtrado['retirada'].dt.date.max()
+    
     periodo1 = (f"{filtros['periodo1']['inicio'].strftime('%d/%m/%Y')} a "
                f"{filtros['periodo1']['fim'].strftime('%d/%m/%Y')}")
     periodo2 = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
@@ -344,11 +367,6 @@ def mostrar_aba(dados, filtros):
         """)
 
     try:
-        # Debug de períodos
-        df = dados['base']
-        data_min = df['retirada'].dt.date.min()
-        data_max = df['retirada'].dt.date.max()
-        
         # Verificar se o período selecionado está contido nos dados
         if (filtros['periodo2']['inicio'] < data_min or 
             filtros['periodo2']['fim'] > data_max):
@@ -364,7 +382,7 @@ def mostrar_aba(dados, filtros):
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            colaboradores = sorted(dados['base']['usuário'].unique())
+            colaboradores = sorted(df_filtrado['usuário'].unique())
             colaborador = st.selectbox(
                 "Selecione o Colaborador",
                 options=["Todos"] + colaboradores,
@@ -382,7 +400,8 @@ def mostrar_aba(dados, filtros):
             )
             
         with col3:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+            # Usar apenas clientes permitidos pelo filtro master
+            clientes = ["Todos"] + [str(cliente) for cliente in clientes_permitidos]
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
@@ -393,10 +412,10 @@ def mostrar_aba(dados, filtros):
         with col4:
             # Obter lista de datas disponíveis no período
             mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
+                (df_filtrado['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+                (df_filtrado['retirada'].dt.date <= filtros['periodo2']['fim'])
             )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
+            datas_disponiveis = sorted(df_filtrado[mask_periodo]['retirada'].dt.date.unique())
             datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
             
             data_selecionada = st.selectbox(
@@ -421,8 +440,8 @@ def mostrar_aba(dados, filtros):
         }
 
         # Calcular métricas para cada período com os filtros
-        atend_p1 = calcular_atendimentos_por_periodo(dados, filtros, 'periodo1', adicional_filters)
-        atend_p2 = calcular_atendimentos_por_periodo(dados, filtros, 'periodo2', adicional_filters)
+        atend_p1 = calcular_atendimentos_por_periodo(dados_filtrados, filtros, 'periodo1', adicional_filters)
+        atend_p2 = calcular_atendimentos_por_periodo(dados_filtrados, filtros, 'periodo2', adicional_filters)
         
         if atend_p1.empty or atend_p2.empty:
             st.warning("Não há dados suficientes para o período ou filtros selecionados.")

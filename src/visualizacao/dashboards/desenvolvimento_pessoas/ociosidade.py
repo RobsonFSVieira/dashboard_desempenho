@@ -362,13 +362,33 @@ def mostrar_aba(dados, filtros):
         """)
     
     try:
+        # Aplicar filtros master primeiro
+        df = dados['base'].copy()
+        mask_master = (
+            (df['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+            (df['retirada'].dt.date <= filtros['periodo2']['fim'])
+        )
+        
+        # Filtrar clientes baseado no filtro master
+        if 'cliente' in filtros and "Todos" not in filtros['cliente']:
+            mask_master &= df['CLIENTE'].isin(filtros['cliente'])
+            clientes_permitidos = sorted(filtros['cliente'])
+        else:
+            clientes_permitidos = sorted(df[mask_master]['CLIENTE'].dropna().unique())
+            
+        if 'operacao' in filtros and "Todas" not in filtros['operacao']:
+            mask_master &= df['OPERAÇÃO'].isin(filtros['operacao'])
+        
+        df_filtrado = df[mask_master]
+        dados_filtrados = {'base': df_filtrado}
+        
         st.session_state['tema_atual'] = detectar_tema()
         
-        # Adicionar filtros como em colaborador.py
+        # Filtros locais
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            colaboradores = sorted(dados['base']['usuário'].unique())
+            colaboradores = sorted(df_filtrado['usuário'].unique())
             colaborador = st.selectbox(
                 "Selecione o Colaborador",
                 options=["Todos"] + colaboradores,
@@ -384,7 +404,8 @@ def mostrar_aba(dados, filtros):
             )
             
         with col3:
-            clientes = ["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist())
+            # Usar apenas clientes permitidos pelo filtro master
+            clientes = ["Todos"] + [str(cliente) for cliente in clientes_permitidos]
             cliente = st.selectbox(
                 "Selecione o Cliente",
                 options=clientes,
@@ -394,10 +415,10 @@ def mostrar_aba(dados, filtros):
         with col4:
             # Obter lista de datas disponíveis no período
             mask_periodo = (
-                (dados['base']['retirada'].dt.date >= filtros['periodo2']['inicio']) &
-                (dados['base']['retirada'].dt.date <= filtros['periodo2']['fim'])
+                (df_filtrado['retirada'].dt.date >= filtros['periodo2']['inicio']) &
+                (df_filtrado['retirada'].dt.date <= filtros['periodo2']['fim'])
             )
-            datas_disponiveis = sorted(dados['base'][mask_periodo]['retirada'].dt.date.unique())
+            datas_disponiveis = sorted(df_filtrado[mask_periodo]['retirada'].dt.date.unique())
             datas_opcoes = ["Todas"] + [data.strftime("%d/%m/%Y") for data in datas_disponiveis]
             
             data_selecionada = st.selectbox(
@@ -421,8 +442,8 @@ def mostrar_aba(dados, filtros):
         }
         
         # Calcular ociosidade usando filtros adicionais
-        ocio_p1 = calcular_ociosidade_por_periodo(dados, filtros, 'periodo1', adicional_filters)
-        ocio_p2 = calcular_ociosidade_por_periodo(dados, filtros, 'periodo2', adicional_filters)
+        ocio_p1 = calcular_ociosidade_por_periodo(dados_filtrados, filtros, 'periodo1', adicional_filters)
+        ocio_p2 = calcular_ociosidade_por_periodo(dados_filtrados, filtros, 'periodo2', adicional_filters)
         
         # Adicionar checkbox para mostrar/ocultar usuários que só têm dados no período 1
         # Usado estilo menos destacado para o checkbox

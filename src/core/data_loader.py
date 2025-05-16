@@ -3,7 +3,7 @@ import pandas as pd
 from io import BytesIO
 import requests
 import time
-from src.config import GITHUB_CONFIG, GITHUB_TOKEN
+from src.config import GITHUB_CONFIG, GITHUB_TOKEN, DRIVE_CONFIG
 
 class DataLoader:
     """Classe responsável por carregar os dados"""
@@ -12,20 +12,20 @@ class DataLoader:
     @st.cache_data(ttl=3600, persist="disk", show_spinner=False)  # Adicionado persist e removido spinner
     def load_data(files=None):
         """Carrega dados de diferentes fontes"""
-        # Tenta carregar do GitHub primeiro (sem validação de token)
+        # Tentar carregar do Drive primeiro
+        dados = DataLoader.load_drive()
+        if dados:
+            return dados
+        
+        # Se falhar, tenta GitHub
         dados = DataLoader.load_github()
         if dados:
             return dados
         
-        # Se falhar, tenta carregar do Drive
-        dados = DataLoader.load_drive()
-        if dados:
-            return dados
-            
-        # Por último, tenta carregar dos arquivos enviados
+        # Por último, tenta arquivos locais
         if files and all(files.values()):
             return DataLoader.load_files(files)
-            
+        
         return None
 
     @staticmethod
@@ -78,9 +78,25 @@ class DataLoader:
 
     @staticmethod
     def load_drive():
-        """Carrega dados do Drive"""
-        # Implementação futura
-        return None
+        """Carrega dados do Google Drive"""
+        dados = {}
+        try:
+            for key, file_id in DRIVE_CONFIG['files'].items():
+                url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                try:
+                    if key == 'medias':
+                        dados[key] = pd.read_excel(url, sheet_name="DADOS")
+                    else:
+                        dados[key] = pd.read_excel(url)
+                except Exception as e:
+                    st.warning(f"⚠️ Erro ao carregar {key}.xlsx do Drive: {str(e)}")
+                    return None
+                    
+            return dados if len(dados) == 3 else None
+            
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao carregar dados do Drive: {str(e)}")
+            return None
 
     @staticmethod
     def load_files(files):

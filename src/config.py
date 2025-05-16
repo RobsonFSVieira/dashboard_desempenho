@@ -17,3 +17,11 @@ GOOGLE_DRIVE_IDS = {
     'codigo': '18QcILseDPRrFMM-I81_ZephiAAJcD1Tf',
     'medias': '17m7LLKLlwksbSyXlRBYKYniNPNL3f_ds'
 }
+
+DRIVE_CONFIG = {
+    'files': {
+        'base': '1-ehU_r7OW5mloHRldWj-Az3yf1LCsC-B',
+        'codigo': '1W8ym32etpHhYeqkJcRLjNAbb7tjQPJUr',
+        'medias': '1PNAJGVESOh76hh3eaPHIbL6FIeVyiLX9'
+    }
+}
