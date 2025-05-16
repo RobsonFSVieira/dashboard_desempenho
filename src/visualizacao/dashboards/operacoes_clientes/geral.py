@@ -412,20 +412,13 @@ def gerar_insights_gerais(dados, filtros, metricas):
             st.markdown(formatar_card(
                 "Maiores Tempos de Espera",
                 formatar_lista([
-                    f"""
+                    f"""<div style='text-align: left'>
                     📍 {formatar_tempo(row['tpesper']/60)}
                     📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
                     👥 {row['CLIENTE']}
-                    🔧 {row['OPERAÇÃO']}
-                    """
+                    🔧 {row['OPERAÇÃO']}</div>"""
                     for _, row in pico_espera.iterrows()
                 ], "\n\n"),
-                estilo="warning"
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Espera",
-                "Não há dados suficientes para análise de tempos de espera.",
                 estilo="warning"
             ), unsafe_allow_html=True)
 
@@ -433,20 +426,13 @@ def gerar_insights_gerais(dados, filtros, metricas):
             st.markdown(formatar_card(
                 "Maiores Tempos de Permanência",
                 formatar_lista([
-                    f"""
+                    f"""<div style='text-align: left'>
                     📍 {formatar_tempo(row['tempo_permanencia']/60)}
                     📅 {row['retirada'].strftime('%d/%m/%Y %H:%M')}
                     👥 {row['CLIENTE']}
-                    🔧 {row['OPERAÇÃO']}
-                    """
+                    🔧 {row['OPERAÇÃO']}</div>"""
                     for _, row in pico_permanencia.iterrows()
                 ], "\n\n"),
-                estilo="warning"
-            ), unsafe_allow_html=True)
-        else:
-            st.markdown(formatar_card(
-                "Maiores Tempos de Permanência",
-                "Não há dados suficientes para análise de tempos de permanência.",
                 estilo="warning"
             ), unsafe_allow_html=True)
 
