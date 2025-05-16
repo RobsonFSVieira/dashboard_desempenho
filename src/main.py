@@ -1,16 +1,19 @@
+# PRIMEIRO: Import do streamlit sozinho
 import streamlit as st
-import pandas as pd
-from processamento.carregar_dados import carregar_dados
-from visualizacao.filtros import criar_filtros
-from visualizacao.gerar_dashboard import criar_dashboard
 
-# Must be the first Streamlit command
+# SEGUNDO: Configuração da página
 st.set_page_config(
     page_title="Dashboard de Atendimento",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# TERCEIRO: Restante dos imports
+import pandas as pd
+from processamento.carregar_dados import carregar_dados
+from visualizacao.filtros import criar_filtros
+from visualizacao.gerar_dashboard import criar_dashboard
 
 # Inicialização do estado da sessão
 if 'debug' not in st.session_state:

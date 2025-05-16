@@ -3,14 +3,6 @@ import pandas as pd
 import os
 from pathlib import Path
 
-# Configuração da página
-st.set_page_config(
-    page_title="Dashboard de Atendimento",
-    page_icon="📊",
-    layout="wide"
-)
-
-# Tentativa 1: Usando caminho relativo simples
 dados_path = "dados/base.xlsx"
 
 # Debug info expandido

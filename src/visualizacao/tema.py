@@ -67,21 +67,12 @@ class Tema:
     @classmethod
     def detectar_tema_atual(cls):
         """Detecta se o tema atual é claro ou escuro"""
-        # Verifica o tema através do query params do Streamlit
         try:
-            # Primeiro tenta obter do session_state
-            if 'tema_atual' in st.session_state:
-                return st.session_state['tema_atual']
-            
-            # Se não existir, tenta obter das configurações do Streamlit
+            # Usar diretamente o tema do Streamlit
             config_theme = st.get_option('theme.base')
-            tema = 'escuro' if config_theme == 'dark' else 'claro'
-            st.session_state['tema_atual'] = tema
-            return tema
-            
+            return 'escuro' if config_theme == 'dark' else 'claro'
         except Exception:
-            # Por padrão, retorna tema claro
-            return 'claro'
+            return 'claro'  # fallback para tema claro
     
     @classmethod
     def configurar_tema_plotly(cls, tema):
@@ -91,8 +82,8 @@ class Tema:
         template = {
             'layout': {
                 'font': {'color': cores['texto']},
-                'plot_bgcolor': cores['fundo'],
-                'paper_bgcolor': cores['fundo'],
+                'plot_bgcolor': 'rgba(0,0,0,0)',  # Fundo transparente
+                'paper_bgcolor': 'rgba(0,0,0,0)', # Fundo transparente
                 'colorway': cls.PALETAS[tema]['categorica'],
                 'colorscale': {
                     'sequential': cls.PALETAS[tema]['sequencial'],
@@ -100,15 +91,17 @@ class Tema:
                 },
                 'xaxis': {
                     'gridcolor': cores['borda'],
-                    'zerolinecolor': cores['borda']
+                    'zerolinecolor': cores['borda'],
+                    'linecolor': cores['borda']
                 },
                 'yaxis': {
                     'gridcolor': cores['borda'],
-                    'zerolinecolor': cores['borda']
+                    'zerolinecolor': cores['borda'],
+                    'linecolor': cores['borda']
                 },
                 'legend': {
-                    'bgcolor': cores['fundo'],
-                    'bordercolor': cores['borda']
+                    'font': {'color': cores['texto']},
+                    'bgcolor': 'rgba(0,0,0,0)',  # Fundo transparente
                 },
                 'title': {
                     'font': {'color': cores['texto']}
