@@ -98,9 +98,12 @@ def mostrar_aba(dados, filtros):
             )
         
         with col2:
+            # Convert all values to strings and handle None/NaN values
+            clientes = dados['base']['CLIENTE'].fillna('').astype(str)
+            clientes = sorted([c for c in clientes.unique() if c != ''])
             cliente_filtro = st.selectbox(
                 "Selecionar Cliente",
-                options=["Todos"] + sorted(dados['base']['CLIENTE'].unique().tolist()),
+                options=["Todos"] + clientes,
                 key="cliente_selectbox_polivalencia_turnos"
             )
         
