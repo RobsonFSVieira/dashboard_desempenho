@@ -83,7 +83,8 @@ def calcular_permanencia(dados, filtros, grupo='CLIENTE'):
     tempos['tpesper'] = tempos['tpesper'] / 60
     tempos['tempo_permanencia'] = tempos['tempo_permanencia'] / 60
     
-    return tempos
+    # Retornar tanto os tempos agregados quanto o DataFrame filtrado
+    return tempos, df_filtrado
 
 def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
     """Cria gráfico de barras empilhadas com tempo de espera e atendimento"""
@@ -277,7 +278,8 @@ def mostrar_aba(dados, filtros):
         
         grupo = "CLIENTE" if tipo_analise == "Cliente" else "OPERAÇÃO"
         
-        tempos = calcular_permanencia(dados, filtros, grupo)
+        # Receber tanto os tempos quanto o DataFrame filtrado
+        tempos, df_filtrado = calcular_permanencia(dados, filtros, grupo)
         meta = filtros['meta_permanencia']
         
         fig = criar_grafico_permanencia(tempos, meta, grupo)
@@ -323,8 +325,8 @@ def mostrar_aba(dados, filtros):
             st.markdown("---")
             st.markdown("### 📋 Detalhamento dos Registros Fora da Meta")
             
-            # Filtrar registros acima da meta do DataFrame original
-            df_base = dados['base'].copy()
+            # Filtrar registros acima da meta do DataFrame filtrado
+            df_base = df_filtrado.copy()
             df_base['tempo_permanencia'] = df_base['tempo_permanencia'] / 60  # Converter para minutos
             df_fora_meta = df_base[df_base['tempo_permanencia'] > meta].copy()
             
