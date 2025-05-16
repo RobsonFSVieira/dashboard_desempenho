@@ -254,14 +254,33 @@ def gerar_insights_gerais(dados, filtros, metricas):
     # Evitar divisão por zero
     total = max(total, 1)
     
-    # Análise de eficiência
-    tempo_meta = filtros.get('meta_permanencia', 30)
-    atendimentos_eficientes = df[df['tempo_permanencia'] <= tempo_meta * 60]['id'].count()
+    # Análise de eficiência - Permanência
+    tempo_meta_permanencia = filtros.get('meta_permanencia', 15) * 60  # em segundos
+    atend_dentro_meta_perm = df[df['tempo_permanencia'] <= tempo_meta_permanencia]['id'].count()
     total_atendimentos = len(df)
-    taxa_eficiencia = (atendimentos_eficientes / total_atendimentos * 100) if total_atendimentos > 0 else 0
-    
+    taxa_efic_permanencia = (atend_dentro_meta_perm / total_atendimentos * 100) if total_atendimentos > 0 else 0
+
+    # Análise de eficiência - Atendimento por Cliente
+    tempos_medios_cliente = df.groupby('CLIENTE')['tpatend'].mean()  # em segundos
+    analise_por_cliente = []
+
+    for cliente in df['CLIENTE'].unique():
+        df_cliente = df[df['CLIENTE'] == cliente]
+        tempo_medio = tempos_medios_cliente[cliente]
+        atend_dentro_media = df_cliente[df_cliente['tpatend'] <= tempo_medio]['id'].count()
+        total_cliente = len(df_cliente)
+        taxa_efic = (atend_dentro_media / total_cliente * 100) if total_cliente > 0 else 0
+        
+        analise_por_cliente.append({
+            'cliente': cliente,
+            'media': tempo_medio,
+            'dentro_media': atend_dentro_media,
+            'total': total_cliente,
+            'taxa_efic': taxa_efic
+        })
+
     # Análise de pontos fora da meta
-    tempo_meta_segundos = tempo_meta * 60
+    tempo_meta_segundos = tempo_meta_permanencia
     df['status_meta'] = df['tempo_permanencia'].apply(lambda x: 'Dentro' if x <= tempo_meta_segundos else 'Fora')
     pontos_fora = df[df['status_meta'] == 'Fora']
     
@@ -286,7 +305,7 @@ def gerar_insights_gerais(dados, filtros, metricas):
             f"""
             📌 Atendimentos totais: {len(df):,}
             ⏱️ Tempo médio total: {formatar_tempo(df['tempo_permanencia'].mean() / 60)}
-            📈 Taxa de eficiência: {taxa_eficiencia:.1f}%
+            📈 Taxa de eficiência: {taxa_efic_permanencia:.1f}%
             """
         ), unsafe_allow_html=True)
         
@@ -295,21 +314,61 @@ def gerar_insights_gerais(dados, filtros, metricas):
             f"""
             ⏳ Tempo médio de espera: {formatar_tempo(df['tpesper'].mean() / 60)}
             ⚡ Tempo médio de atendimento: {formatar_tempo(df['tpatend'].mean() / 60)}
-            🎯 Meta de permanência: {tempo_meta}:00 min
+            🎯 Meta de permanência: {tempo_meta_permanencia // 60}:00 min
             """
         ), unsafe_allow_html=True)
 
     with col2:
         st.subheader("🎯 Análise de Metas")
+
+        # Card de Permanência (mantém como está)
         st.markdown(formatar_card(
-            "Desempenho",
+            "Meta de Permanência (15min)",
             f"""
-            ✅ Dentro da meta: {dentro_meta:,} ({perc_dentro:.1f}%)
-            ❌ Fora da meta: {fora_meta:,} ({perc_fora:.1f}%)
-            """
+            ✅ Dentro da meta: {atend_dentro_meta_perm:,} ({taxa_efic_permanencia:.1f}%)
+            ❌ Fora da meta: {total_atendimentos - atend_dentro_meta_perm:,} ({100-taxa_efic_permanencia:.1f}%)
+            """,
+            "default"
         ), unsafe_allow_html=True)
 
-        # Verificar se há dias críticos antes de mostrar
+        # Calcular média geral de atendimento
+        tempo_medio_geral = df['tpatend'].mean()
+        atend_dentro_media_geral = df[df['tpatend'] <= tempo_medio_geral]['id'].count()
+        taxa_efic_geral = (atend_dentro_media_geral / total_atendimentos * 100) if total_atendimentos > 0 else 0
+
+        # Ordenar clientes por eficiência
+        analise_por_cliente.sort(key=lambda x: x['taxa_efic'], reverse=True)
+
+        # Substituir a seção do card de Meta de Atendimento por:
+        container_metas = st.container()
+        with container_metas:
+            # Preparar conteúdo detalhado dos clientes
+            detalhes_clientes = []
+            for analise in analise_por_cliente:
+                detalhes_clientes.append(f"""
+                **{analise['cliente']}**:
+                • Tempo Médio: {formatar_tempo(analise['media']/60)}
+                • Dentro da Média: {analise['dentro_media']:,} ({analise['taxa_efic']:.1f}%)
+                • Fora da Média: {analise['total'] - analise['dentro_media']:,} ({100-analise['taxa_efic']:.1f}%)
+                • Total: {analise['total']:,} atendimentos
+                """)
+
+            # Card consolidado com análise geral e por cliente
+            conteudo_card = f"""
+            💠 **Análise Geral** (média: {formatar_tempo(tempo_medio_geral/60)})
+            ✅ Dentro da média: {atend_dentro_media_geral:,} ({taxa_efic_geral:.1f}%)
+            ❌ Fora da média: {total_atendimentos - atend_dentro_media_geral:,} ({100-taxa_efic_geral:.1f}%)
+            
+            📊 **Análise por Cliente**:
+            {"\n".join(detalhes_clientes)}
+            """
+            
+            st.markdown(formatar_card(
+                "Meta de Atendimento",
+                conteudo_card,
+                "default"
+            ), unsafe_allow_html=True)
+
         if not dias_criticos.empty and len(dias_criticos) >= 3:
             st.markdown(formatar_card(
                 "Pontos Críticos",
