@@ -70,7 +70,14 @@ def calcular_metricas_hora(dados, filtros, cliente=None, operacao=None, data_esp
     # Agrupar mantendo os IDs das senhas e garantir valores numéricos
     retiradas_grupo = df_filtrado.groupby(df_filtrado['retirada'].dt.hour)
     metricas_hora['retiradas'] = pd.Series(retiradas_grupo.size()).reindex(range(24)).fillna(0)
-    metricas_hora['senhas_hora'] = retiradas_grupo.apply(lambda x: x['id'].tolist())
+    
+    # Nova forma de calcular senhas_hora
+    senhas_por_hora = {}
+    for hora in range(24):
+        senhas_hora = df_filtrado[df_filtrado['retirada'].dt.hour == hora]['id'].tolist()
+        senhas_por_hora[hora] = senhas_hora
+    
+    metricas_hora['senhas_hora'] = metricas_hora['hora'].map(senhas_por_hora)
     
     # Calcular atendidas e pendentes com valores padrão
     atendidas = df_filtrado.groupby(df_filtrado['inicio'].dt.hour)['id'].count()
@@ -477,8 +484,8 @@ def mostrar_aba(dados, filtros):
         )
         
         if tipo_analise == "Por Cliente":
-            # Lista de clientes disponíveis
-            clientes = sorted(dados['base']['CLIENTE'].unique())
+            # Convert CLIENTE values to strings before sorting
+            clientes = sorted(dados['base']['CLIENTE'].astype(str).unique())
             cliente_selecionado = st.selectbox(
                 "Selecione o Cliente:",
                 clientes,
@@ -493,13 +500,14 @@ def mostrar_aba(dados, filtros):
             )
             data_especifica = datas_dict[data_formatada]
             
-            # Calcular métricas e criar gráfico
-            metricas = calcular_metricas_hora(dados, filtros, cliente=cliente_selecionado, data_especifica=data_especifica)
+            # Calcular métricas e criar gráfico (converter cliente_selecionado de volta para o tipo original)
+            cliente_original = dados['base'].loc[dados['base']['CLIENTE'].astype(str) == cliente_selecionado, 'CLIENTE'].iloc[0]
+            metricas = calcular_metricas_hora(dados, filtros, cliente=cliente_original, data_especifica=data_especifica)
             fig = criar_grafico_comboio(metricas[0], cliente_selecionado)
             
         elif tipo_analise == "Por Operação":
-            # Lista de operações disponíveis
-            operacoes = sorted(dados['base']['OPERAÇÃO'].unique())
+            # Convert OPERAÇÃO values to strings before sorting
+            operacoes = sorted(dados['base']['OPERAÇÃO'].astype(str).unique())
             operacao_selecionada = st.selectbox(
                 "Selecione a Operação:",
                 operacoes,
@@ -514,10 +522,11 @@ def mostrar_aba(dados, filtros):
             )
             data_especifica = datas_dict[data_formatada]
             
-            # Calcular métricas e criar gráfico
-            metricas = calcular_metricas_hora(dados, filtros, operacao=operacao_selecionada, data_especifica=data_especifica)
+            # Calcular métricas e criar gráfico (converter operacao_selecionada de volta para o tipo original)
+            operacao_original = dados['base'].loc[dados['base']['OPERAÇÃO'].astype(str) == operacao_selecionada, 'OPERAÇÃO'].iloc[0]
+            metricas = calcular_metricas_hora(dados, filtros, operacao=operacao_original, data_especifica=data_especifica)
             fig = criar_grafico_comboio(metricas[0], operacao_selecionada)
-            
+        
         else:
             # Seletor de data com formato dd/mm/aaaa
             data_formatada = st.selectbox(

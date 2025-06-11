@@ -168,8 +168,8 @@ def mostrar_aba(dados, filtros):
         )
         
         if tipo_analise == "Por Cliente":
-            # Lista de clientes disponíveis
-            clientes = sorted(dados['base']['CLIENTE'].unique())
+            # Convert CLIENTE values to strings before sorting
+            clientes = sorted(dados['base']['CLIENTE'].astype(str).unique())
             cliente_selecionado = st.selectbox(
                 "Selecione o Cliente:",
                 clientes
