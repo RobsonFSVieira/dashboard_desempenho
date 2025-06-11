@@ -327,18 +327,36 @@ def mostrar_aba(dados, filtros):
             
             # Filtrar registros acima da meta do DataFrame filtrado
             df_base = df_filtrado.copy()
-            df_base['tempo_permanencia'] = df_base['tempo_permanencia'] / 60  # Converter para minutos
+            
+            # Primeiro converter para minutos para reduzir os números
+            df_base['tpatend'] = df_base['tpatend'] / 60
+            df_base['tpesper'] = df_base['tpesper'] / 60
+            df_base['tempo_permanencia'] = df_base['tempo_permanencia'] / 60
+            
+            # Depois converter para float32
+            df_base['tpatend'] = df_base['tpatend'].astype('float32')
+            df_base['tpesper'] = df_base['tpesper'].astype('float32')
+            df_base['tempo_permanencia'] = df_base['tempo_permanencia'].astype('float32')
+            
+            # Tratar campos ID e número separadamente
+            if 'id' in df_base.columns:
+                df_base['id'] = pd.to_numeric(df_base['id'], downcast='integer')
+            if 'numero' in df_base.columns:
+                df_base['numero'] = pd.to_numeric(df_base['numero'], downcast='integer')
+            
+            # Filtrar registros fora da meta
             df_fora_meta = df_base[df_base['tempo_permanencia'] > meta].copy()
             
             if not df_fora_meta.empty:
-                # Formatar colunas de tempo
+                # Garantir que colunas de texto sejam strings
+                for col in ['prefixo', 'complemento', 'status', 'guichê', 'usuário']:
+                    if col in df_fora_meta.columns:
+                        df_fora_meta[col] = df_fora_meta[col].fillna('').astype(str)
+                
+                # Formatar colunas de data/hora como strings
                 for col in ['retirada', 'inicio', 'fim']:
                     if col in df_fora_meta.columns:
                         df_fora_meta[col] = df_fora_meta[col].dt.strftime('%H:%M:%S')
-                
-                # Formatar tempos para minutos
-                df_fora_meta['tpatend'] = df_fora_meta['tpatend'] / 60
-                df_fora_meta['tpesper'] = df_fora_meta['tpesper'] / 60
                 
                 # Exibir tabela com configuração personalizada
                 st.dataframe(
@@ -405,15 +423,18 @@ def mostrar_aba(dados, filtros):
             with col2:
                 piores = acima_meta.nlargest(3, 'tempo_permanencia')
                 st.markdown("**Necessitam Atenção:**")
-                for _, row in piores.iterrows():
-                    diff = row['tempo_permanencia'] - meta
-                    st.markdown(f"""
-                    - {row[grupo]}:
-                        - Total: {formatar_tempo(row['tempo_permanencia'])} min
-                        - :red[{formatar_tempo(diff)} min acima da meta]
-                        - Espera: {formatar_tempo(row['tpesper'])} min
-                        - Atendimento: {formatar_tempo(row['tpatend'])} min
-                    """)
+                if not piores.empty:
+                    for _, row in piores.iterrows():
+                        diff = row['tempo_permanencia'] - meta
+                        st.markdown(f"""
+                        - {row[grupo]}:
+                            - Total: {formatar_tempo(row['tempo_permanencia'])} min
+                            - :red[{formatar_tempo(diff)} min acima da meta]
+                            - Espera: {formatar_tempo(row['tpesper'])} min
+                            - Atendimento: {formatar_tempo(row['tpatend'])} min
+                        """)
+                else:
+                    st.info("✨ Ótimo! Todos os registros estão dentro da meta estabelecida.")
     
     except Exception as e:
         st.error("Erro ao gerar a aba de Permanência")
