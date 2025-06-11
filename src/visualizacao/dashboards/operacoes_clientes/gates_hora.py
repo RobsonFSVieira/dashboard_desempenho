@@ -684,7 +684,8 @@ def mostrar_aba(dados, filtros):
         )
         
         if tipo_analise == "Por Cliente":
-            clientes = sorted(dados['base']['CLIENTE'].unique())
+            # Convert CLIENTE values to strings before sorting
+            clientes = sorted(dados['base']['CLIENTE'].astype(str).unique())
             cliente_selecionado = st.selectbox(
                 "Selecione o Cliente:",
                 clientes,
@@ -704,7 +705,8 @@ def mostrar_aba(dados, filtros):
             fig = criar_grafico_gates(metricas[0], cliente_selecionado)
             
         elif tipo_analise == "Por Operação":
-            operacoes = sorted(dados['base']['OPERAÇÃO'].unique())
+            # Converter operações para string antes de ordenar
+            operacoes = sorted(dados['base']['OPERAÇÃO'].astype(str).unique())
             operacao_selecionada = st.selectbox(
                 "Selecione a Operação:",
                 operacoes,
@@ -718,11 +720,15 @@ def mostrar_aba(dados, filtros):
             )
             data_especifica = datas_dict[data_formatada]
             
+            # Correção: Obter a operação original corretamente
+            mask_operacao = dados['base']['OPERAÇÃO'].astype(str) == operacao_selecionada
+            operacao_original = dados['base'].loc[mask_operacao, 'OPERAÇÃO'].iloc[0]
+            
             metricas = calcular_gates_hora(dados, filtros, 
-                                         operacao=operacao_selecionada, 
+                                         operacao=operacao_original, 
                                          data_especifica=data_especifica)
             fig = criar_grafico_gates(metricas[0], operacao_selecionada)
-            
+    
         else:
             data_formatada = st.selectbox(
                 "Selecione uma data:",

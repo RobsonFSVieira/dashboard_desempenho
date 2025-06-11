@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import json
 
 def formatar_tempo(minutos):
@@ -84,81 +86,82 @@ def calcular_permanencia(dados, filtros, grupo='CLIENTE'):
     # Retornar tanto os tempos agregados quanto o DataFrame filtrado
     return tempos, df_filtrado
 
-def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE', filtros=None):
+def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE'):
     """Cria gráfico de barras empilhadas com tempo de espera e atendimento"""
-    # Criar DataFrames separados para espera e atendimento
-    df_espera = pd.DataFrame({
-        grupo: dados_tempo[grupo],
-        'Tempo': dados_tempo['tpesper'],
-        'Tipo': 'Tempo de Espera'
-    })
+    cores_tema = obter_cores_tema()
     
-    df_atend = pd.DataFrame({
-        grupo: dados_tempo[grupo],
-        'Tempo': dados_tempo['tpatend'],
-        'Tipo': 'Tempo de Atendimento'
-    })
+    # Ordena por tempo total de permanência (invertido - menores no topo)
+    df = dados_tempo.sort_values('tempo_permanencia', ascending=False)
     
-    # Invertendo a ordem da concatenação para que Tempo de Espera venha primeiro
-    df_long = pd.concat([df_atend, df_espera], ignore_index=True)
+    fig = go.Figure()
     
-    # Adicionar coluna de total
-    df_long = df_long.merge(
-        dados_tempo[[grupo, 'tempo_permanencia']],
-        on=grupo,
-        how='left'
-    )
-    
-    # Ordenar por tempo total (menor para maior)
-    df_long = df_long.sort_values('tempo_permanencia', ascending=False)
-    
-    # Formatar período para o título
-    periodo = (f"{filtros['periodo2']['inicio'].strftime('%d/%m/%Y')} a "
-              f"{filtros['periodo2']['fim'].strftime('%d/%m/%Y')}")
-    
-    # Criar o gráfico com cores personalizadas e ordem invertida
-    fig = px.bar(
-        df_long,
-        x='Tempo',
-        y=grupo,
-        color='Tipo',
-        barmode='stack',
-        orientation='h',
-        category_orders={"Tipo": ["Tempo de Espera", "Tempo de Atendimento"]},  # Define ordem explícita
-        title=f'Tempo de Permanência por {grupo} ({periodo})',
-        labels={
-            'Tempo': 'Tempo (minutos)',
-            'Tipo': ''  # Remove o label 'Tipo'
-        },
-        height=max(600, len(dados_tempo) * 45),
-        text=[f"{formatar_tempo(x)} min" for x in df_long['Tempo']],
-        color_discrete_map={
-            'Tempo de Espera': '#1a365d',      # Azul escuro profundo
-            'Tempo de Atendimento': '#4dabf7'   # Azul claro vibrante
-        }
-    )
-    
-    # Adicionar linha de meta com texto vermelho
-    fig.add_vline(
-        x=meta,
-        line_dash="dash",
-        line_color="#ff5757",
-        annotation_text=f"Meta: {formatar_tempo(meta)} min",
-        annotation_position="top right",
-        annotation_font=dict(
-            color="#ff5757",  # Texto da meta em vermelho
-            size=14
+    # Adiciona barra de tempo de espera
+    fig.add_trace(
+        go.Bar(
+            name='Tempo de Espera',
+            y=df[grupo],
+            x=df['tpesper'],
+            orientation='h',
+            text=[f"{formatar_tempo(x)} min" for x in df['tpesper']],
+            textposition='inside',
+            marker_color=cores_tema['secundaria'],
+            textfont={'color': '#000000', 'size': 16, 'family': 'Arial Black'},
+            opacity=0.85
         )
     )
     
-    # Adiciona anotações de tempo total com cores baseadas na meta
-    for idx, row in dados_tempo.iterrows():
+    # Adiciona barra de tempo de atendimento
+    fig.add_trace(
+        go.Bar(
+            name='Tempo de Atendimento',
+            y=df[grupo],
+            x=df['tpatend'],
+            orientation='h',
+            text=[f"{formatar_tempo(x)} min" for x in df['tpatend']],
+            textposition='inside',
+            marker_color=cores_tema['primaria'],
+            textfont={'color': '#ffffff', 'size': 16, 'family': 'Arial Black'},
+            opacity=0.85
+        )
+    )
+    
+    # Adiciona linha de meta para cobrir toda a área do gráfico
+    fig.add_shape(
+        type="line",
+        x0=meta,
+        x1=meta,
+        y0=-0.5,  # Estende abaixo da primeira barra
+        y1=len(df)-0.5,  # Estende acima da última barra
+        line=dict(
+            color=cores_tema['erro'],
+            dash="dash",
+            width=2
+        ),
+        name=f'Meta: {formatar_tempo(meta)} min'
+    )
+    
+    # Adiciona entrada na legenda para a meta
+    fig.add_trace(
+        go.Scatter(
+            name=f'Meta: {formatar_tempo(meta)} min',
+            x=[None],
+            y=[None],
+            mode='lines',
+            line=dict(
+                color=cores_tema['erro'],
+                dash="dash",
+                width=2
+            ),
+            showlegend=True
+        )
+    )
+    
+    # Adiciona anotações com o tempo total e percentual acima da meta
+    for i, row in df.iterrows():
         tempo_total = row['tempo_permanencia']
         perc_acima = ((tempo_total - meta) / meta * 100) if tempo_total > meta else 0
         
-        # Define cor do texto com base na meta
-        cor_texto = "#ff5757" if tempo_total > meta else "#29b09d"  # Vermelho se acima, verde se abaixo
-        
+        cor = cores_tema['erro'] if tempo_total > meta else cores_tema['sucesso']
         texto = (f"{formatar_tempo(tempo_total)} min" if perc_acima <= 0 
                 else f"{formatar_tempo(tempo_total)} min (+{perc_acima:.1f}%)")
         
@@ -168,25 +171,22 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE', filtros=None):
             text=texto,
             showarrow=False,
             xshift=10,
-            font=dict(
-                size=15,                # Aumentado tamanho da fonte
-                color=cor_texto,        # Cor dinâmica baseada na meta
-                family='Arial Black'    # Fonte mais destacada
-            ),
+            font=dict(color=cor, size=14),
             xanchor='left',
             yanchor='middle'
         )
     
-    # Atualizar layout com cores específicas
+    # Atualiza layout
     fig.update_layout(
-        plot_bgcolor='white',          # Fundo do gráfico branco
-        paper_bgcolor='white',         # Fundo do papel branco
-        title_font_color='#2c3e50',   # Cor do título em cinza escuro
-        font=dict(
-            family="Inter, -apple-system, BlinkMacSystemFont, sans-serif",
-            color='#2c3e50',          # Cor do texto em cinza escuro
-            size=12
-        ),
+        title={
+            'text': f'Tempo de Permanência por {grupo}',
+            'font': {'size': 16, 'color': cores_tema['texto']}
+        },
+        barmode='stack',
+        bargap=0.15,
+        bargroupgap=0.1,
+        height=max(600, len(df) * 45),
+        font={'size': 12, 'color': cores_tema['texto']},
         showlegend=True,
         legend={
             'orientation': 'h',
@@ -194,46 +194,36 @@ def criar_grafico_permanencia(dados_tempo, meta, grupo='CLIENTE', filtros=None):
             'y': 1.02,
             'xanchor': 'right',
             'x': 1,
-            'bgcolor': 'white',        # Fundo da legenda branco
-            'bordercolor': '#e9ecef'   # Borda da legenda em cinza claro
+            'font': {'color': cores_tema['texto']},
+            'traceorder': 'normal',
+            'itemsizing': 'constant'
         },
         margin=dict(l=20, r=160, t=80, b=40),
-        bargap=0.15,
-        bargroupgap=0.1
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor=cores_tema['fundo']
     )
     
-    # Atualizar eixos
+    # Atualiza eixos
     fig.update_xaxes(
-        title_font_color='#2c3e50',   # Cor do título do eixo
-        tickfont_color='#2c3e50',     # Cor dos números do eixo
-        gridcolor='#e9ecef',          # Cor da grade em cinza muito claro
+        title='Tempo (minutos)',
+        title_font={'color': cores_tema['texto']},
+        tickfont={'color': cores_tema['texto']},
+        gridcolor=cores_tema['grid'],
         showline=True,
         linewidth=1,
-        linecolor='#e9ecef'
+        linecolor=cores_tema['grid'],
+        zeroline=False
     )
     
     fig.update_yaxes(
-        title_font_color='#2c3e50',
-        tickfont_color='#2c3e50',
-        showgrid=False,
+        title=grupo,
+        title_font={'color': cores_tema['texto']},
+        tickfont={'color': cores_tema['texto']},
+        gridcolor=cores_tema['grid'],
         showline=True,
         linewidth=1,
-        linecolor='#e9ecef'
-    )
-    
-    # Atualizar textos das barras
-    fig.update_traces(
-        opacity=0.9,                # Leve transparência
-        marker=dict(
-            line=dict(width=1, color='rgba(255,255,255,0.2)')  # Borda sutil
-        ),
-        textfont=dict(
-            color='white',             # Cor do texto dentro das barras
-            size=16,                   # Aumentado tamanho da fonte
-            family='Arial Black'       # Fonte mais pesada para parecer negrito
-        ),
-        textposition='inside',
-        texttemplate='%{text}'        # Garante que o texto personalizado seja usado
+        linecolor=cores_tema['grid'],
+        zeroline=False
     )
     
     return fig
@@ -292,8 +282,12 @@ def mostrar_aba(dados, filtros):
         tempos, df_filtrado = calcular_permanencia(dados, filtros, grupo)
         meta = filtros['meta_permanencia']
         
-        fig = criar_grafico_permanencia(tempos, meta, grupo, filtros)  # Adicionado filtros como parâmetro
-        st.plotly_chart(fig, use_container_width=True)
+        fig = criar_grafico_permanencia(tempos, meta, grupo)
+        st.plotly_chart(
+            fig, 
+            use_container_width=True,
+            key=f"grafico_permanencia_{grupo}_{st.session_state['tema_atual']}"
+        )
         
         st.markdown("---")
         with st.expander("📊 Ver Insights", expanded=True):
